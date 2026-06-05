@@ -20,6 +20,7 @@ export interface RunAgentOptions {
 export interface RunAgentResult {
   text: string;
   ok: boolean;
+  error?: string;
 }
 
 export async function runAgent(opts: RunAgentOptions): Promise<RunAgentResult> {
@@ -84,7 +85,6 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunAgentResult> {
           if (!tool) {
             return { type: 'tool_result', tool_use_id: tu.id, content: `Unknown tool: ${tu.name}`, is_error: true };
           }
-          bus.emit({ type: 'activity', activity: { id: agent.id, status: 'working', progress: 0.5, action: tu.name } });
           if (tool.destructive) {
             const allowed = await canUseTool(agent.id, tool, tu.input, tu.id);
             if (!allowed) {
@@ -92,6 +92,7 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunAgentResult> {
               return { type: 'tool_result', tool_use_id: tu.id, content: 'User denied this action.', is_error: true };
             }
           }
+          bus.emit({ type: 'activity', activity: { id: agent.id, status: 'working', progress: 0.5, action: tu.name } });
           bus.emit({ type: 'toolStart', agent: agent.id, tool: tu.name, input: tu.input, id: tu.id });
           try {
             const output = await tool.run(tu.input, { cwd, signal });
@@ -107,10 +108,11 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunAgentResult> {
 
       messages.push({ role: 'user', content: results });
     }
-    bus.emit({ type: 'agentFinished', agent: agent.id, ok: true });
-    return { text: finalText, ok: true };
-  } catch (err) {
     bus.emit({ type: 'agentFinished', agent: agent.id, ok: false });
     return { text: finalText, ok: false };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    bus.emit({ type: 'agentFinished', agent: agent.id, ok: false });
+    return { text: finalText, ok: false, error: message };
   }
 }
