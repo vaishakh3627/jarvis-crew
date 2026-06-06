@@ -6,8 +6,8 @@ import type { AgentId } from './core/events.js';
 import type { Tool } from './core/tools/types.js';
 import { runOrchestrator } from './core/orchestrator.js';
 import { RealAnthropic } from './core/anthropic.js';
-import { getCredentials, isAuthenticated } from './auth/credentials.js';
-import { login } from './auth/login.js';
+import { getCredentials } from './auth/credentials.js';
+import { login, hasAntSession } from './auth/login.js';
 import { App } from './ui/App.js';
 import { PermissionPrompt } from './ui/PermissionPrompt.js';
 
@@ -110,13 +110,14 @@ function Root() {
       if (handled === 'unknown') setNotice(`Unknown command: ${text}`);
       return;
     }
-    if (!isAuthenticated()) {
+    const creds = getCredentials();
+    if (!creds && !(await hasAntSession())) {
       setNotice('Not logged in. Run /login or set ANTHROPIC_API_KEY.');
       return;
     }
     setBusy(true);
-    const creds = getCredentials()!;
-    const client = new RealAnthropic(creds);
+    // Explicit creds → use them; otherwise let the SDK auto-detect the ant session.
+    const client = creds ? new RealAnthropic(creds) : new RealAnthropic();
     const controller = new AbortController();
     controllerRef.current = controller;
     try {

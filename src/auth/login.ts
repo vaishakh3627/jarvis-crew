@@ -36,3 +36,23 @@ export async function login(deps: LoginDeps = { hasAnt: defaultHasAnt, runAnt: d
   const { code } = await deps.runAnt(['auth', 'login']);
   return code === 0 ? { kind: 'browser' } : { kind: 'failed', code };
 }
+
+/**
+ * True when there is an active `ant` OAuth session (the user has run
+ * `ant auth login`). The Anthropic SDK auto-detects that profile, so when this
+ * is true we can construct the client with no explicit key.
+ */
+export async function hasAntSession(
+  deps: { runAntStatus?: () => Promise<{ code: number }> } = {},
+): Promise<boolean> {
+  const run =
+    deps.runAntStatus ??
+    (() =>
+      new Promise<{ code: number }>((resolve) => {
+        const child = spawn('ant', ['auth', 'status'], { stdio: 'ignore' });
+        child.on('error', () => resolve({ code: 1 }));
+        child.on('close', (code) => resolve({ code: code ?? 1 }));
+      }));
+  const { code } = await run();
+  return code === 0;
+}
