@@ -8,16 +8,17 @@ import { Input } from './src/ui/Input.js';
 import { Footer } from './src/ui/Footer.js';
 
 const acts:any = [
-  { id:'atlas', status:'done', progress:1, action:'planned 2 tasks' },
+  { id:'atlas', status:'working', progress:0.5, action:'orchestrating 3 tasks' },
   { id:'iris', status:'working', progress:0.6, action:'editing LoginForm.tsx' },
-  { id:'forge', status:'thinking', progress:0.3, action:'designing /api/login' },
+  { id:'volt', status:'thinking', progress:0.3, action:'wiring up form state' },
+  { id:'edith', status:'working', progress:0.4, action:'designing /api/login' },
 ];
-const panes = acts.filter((a:any)=>a.status==='working'||a.status==='thinking');
+const panes = acts;
 const transcript:any = [
   { kind:'user', text:'build me a login page with an API' },
-  { kind:'agentText', agent:'atlas', text:'On it — delegating UI to Iris and the endpoint to Forge.' },
+  { kind:'agentText', agent:'atlas', text:'On it — delegating UI to Iris, frontend to Volt, and the endpoint to Edith.' },
   { kind:'tool', agent:'iris', tool:'write', detail:'src/LoginForm.tsx', ok:true },
-  { kind:'tool', agent:'forge', tool:'bash', detail:'npm test — 12 passing', ok:true },
+  { kind:'tool', agent:'edith', tool:'bash', detail:'npm test — 12 passing', ok:true },
 ];
 function frame(label:string, el:any){ const {lastFrame}=render(el); console.log('\n'+label+'\n'+lastFrame()); }
 frame('══ HEADER ══', <Header notice='Ready — running on your Claude Code (Max) login. Describe what to build, or /help.' status='MAX' />);

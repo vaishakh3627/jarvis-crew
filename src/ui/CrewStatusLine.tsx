@@ -3,6 +3,7 @@ import { Box, Text } from 'ink';
 import Spinner from 'ink-spinner';
 import type { AgentActivity } from '../core/events.js';
 import { getAgent } from '../core/crew.js';
+import { AgentChip } from './AgentBadge.js';
 
 function bar(progress: number): string {
   const filled = Math.round(progress * 5);
@@ -36,10 +37,11 @@ export function CrewStatusLine({ activities }: { activities: AgentActivity[] }) 
             ) : (
               <Text color={glyphColor(a.status)}>{glyph(a.status)} </Text>
             )}
-            <Text bold color={def.color}>
-              {def.emoji} {def.name}
+            <AgentChip id={a.id} />
+            <Text color={def.color} dimColor>
+              {' '}
+              {def.role}{' '}
             </Text>
-            <Text dimColor> {def.role} </Text>
             <Text color={def.color}>{bar(a.progress)}</Text>
             {active ? <Text dimColor> {a.status}</Text> : null}
             {a.action ? <Text dimColor> · {a.action}</Text> : null}

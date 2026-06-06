@@ -3,6 +3,7 @@ import { Box, Text } from 'ink';
 import type { AgentId } from '../core/events.js';
 import { getAgent } from '../core/crew.js';
 import { Markdown } from './Markdown.js';
+import { AgentChip, YouChip } from './AgentBadge.js';
 
 export type TranscriptItem =
   | { kind: 'user'; text: string }
@@ -52,9 +53,9 @@ export function ConversationTimeline({ items }: { items: TranscriptItem[] }) {
           return (
             <Gutter key={i} color="cyan">
               <Box flexDirection="column">
-                <Text bold color="cyanBright">
-                  ▸ you
-                </Text>
+                <Box>
+                  <YouChip />
+                </Box>
                 <Text>{item.text}</Text>
               </Box>
             </Gutter>
@@ -65,9 +66,9 @@ export function ConversationTimeline({ items }: { items: TranscriptItem[] }) {
           return (
             <Gutter key={i} color={def.color}>
               <Box flexDirection="column">
-                <Text bold color={def.color}>
-                  {def.emoji} {def.name}
-                </Text>
+                <Box>
+                  <AgentChip id={item.agent} />
+                </Box>
                 <Markdown text={item.text} />
               </Box>
             </Gutter>
