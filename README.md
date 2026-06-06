@@ -24,8 +24,12 @@ node dist/cli.js        # or, after `npm link`, just: jarvis
 Run it from whatever project directory you want Jarvis to work in — it edits
 files in the current working directory.
 
+If you're not signed in, Jarvis says so on launch — type `/login` and it runs
+Claude Code's own sign-in for you.
+
 ## Commands
 
+- `/login` — sign in to Claude Code (runs `claude auth login`)
 - `/help` — list commands
 - `/clear` — clear the transcript
 - **Ctrl-C** — interrupt the current run, or quit when idle

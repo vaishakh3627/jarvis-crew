@@ -1,11 +1,13 @@
 #!/usr/bin/env node
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { render, Box, Text, useApp, useInput } from 'ink';
 import { EventBus } from './core/events.js';
 import { runClaudeCode } from './core/claudeCode.js';
+import { isClaudeLoggedIn, runClaudeLogin } from './auth/claudeAuth.js';
 import { App } from './ui/App.js';
 
 export interface SlashActions {
+  login: () => void;
   help: () => void;
   clear: () => void;
 }
@@ -17,6 +19,9 @@ export async function routeSlashCommand(
   if (!input.startsWith('/')) return 'passthrough';
   const cmd = input.slice(1).split(/\s+/)[0];
   switch (cmd) {
+    case 'login':
+      actions.login();
+      return 'handled';
     case 'help':
       actions.help();
       return 'handled';
@@ -28,13 +33,25 @@ export async function routeSlashCommand(
   }
 }
 
-function Root() {
+function Root({ onRequestLogin }: { onRequestLogin: () => void }) {
   const bus = useMemo(() => new EventBus(), []);
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState('Type a request. Runs on your Claude Code (Max) login.');
+  const [notice, setNotice] = useState('Checking your Claude Code login…');
   const [clearNonce, setClearNonce] = useState(0);
+  const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
   const { exit } = useApp();
+
+  useEffect(() => {
+    isClaudeLoggedIn().then((ok) => {
+      setLoggedIn(ok);
+      setNotice(
+        ok
+          ? 'Ready — running on your Claude Code (Max) login. Describe what to build, or /help.'
+          : 'Not signed in to Claude Code. Type /login to sign in.',
+      );
+    });
+  }, []);
 
   // Ctrl-C: interrupt the active run if busy, otherwise quit.
   useInput((input, key) => {
@@ -50,7 +67,8 @@ function Root() {
 
   async function onSubmit(text: string) {
     const handled = await routeSlashCommand(text, {
-      help: () => setNotice('Commands: /help, /clear. Otherwise, just describe what to build.'),
+      login: () => onRequestLogin(),
+      help: () => setNotice('Commands: /login, /help, /clear. Otherwise, just describe what to build.'),
       clear: () => {
         setClearNonce((n) => n + 1);
         setNotice('Cleared.');
@@ -58,6 +76,10 @@ function Root() {
     });
     if (handled !== 'passthrough') {
       if (handled === 'unknown') setNotice(`Unknown command: ${text}`);
+      return;
+    }
+    if (loggedIn === false) {
+      setNotice('Not signed in to Claude Code. Type /login first.');
       return;
     }
     setBusy(true);
@@ -88,8 +110,23 @@ function Root() {
   );
 }
 
+let currentInstance: ReturnType<typeof render> | null = null;
+
+function mount(): void {
+  currentInstance = render(<Root onRequestLogin={handleLogin} />, { exitOnCtrlC: false });
+}
+
+/** Release the terminal, run Claude Code's interactive login, then remount. */
+async function handleLogin(): Promise<void> {
+  currentInstance?.unmount();
+  currentInstance = null;
+  process.stdout.write('\n');
+  await runClaudeLogin();
+  mount();
+}
+
 // Mount only when run as the entry point (node dist/cli.js or tsx src/cli.tsx).
 const entry = process.argv[1] ?? '';
 if (/[\\/]cli\.(js|tsx)$/.test(entry)) {
-  render(<Root />, { exitOnCtrlC: false });
+  mount();
 }
