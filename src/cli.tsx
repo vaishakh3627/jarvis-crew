@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import React, { useMemo, useRef, useState } from 'react';
 import { render, Box, Text, useApp, useInput } from 'ink';
 import { EventBus } from './core/events.js';
@@ -150,7 +151,9 @@ function Root() {
   );
 }
 
-// Mount only when run as a binary, not when imported by tests.
-if (process.argv[1] && process.argv[1].endsWith('cli.js')) {
+// Mount only when run as the entry point (node dist/cli.js or tsx src/cli.tsx),
+// not when imported by tests.
+const entry = process.argv[1] ?? '';
+if (/[\\/]cli\.(js|tsx)$/.test(entry)) {
   render(<Root />, { exitOnCtrlC: false });
 }
