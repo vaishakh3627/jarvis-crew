@@ -38,21 +38,27 @@ export async function login(deps: LoginDeps = { hasAnt: defaultHasAnt, runAnt: d
 }
 
 /**
- * True when there is an active `ant` OAuth session (the user has run
- * `ant auth login`). The Anthropic SDK auto-detects that profile, so when this
- * is true we can construct the client with no explicit key.
+ * Returns the current `ant` OAuth access token, or null if the user is not
+ * logged in via `ant`. We pass this explicitly as the SDK's authToken because
+ * the pinned SDK does not auto-detect the ant profile. The token is short-lived,
+ * so fetch it fresh per run.
  */
-export async function hasAntSession(
-  deps: { runAntStatus?: () => Promise<{ code: number }> } = {},
-): Promise<boolean> {
+export async function getAntToken(
+  deps: { run?: () => Promise<{ code: number; stdout: string }> } = {},
+): Promise<string | null> {
   const run =
-    deps.runAntStatus ??
+    deps.run ??
     (() =>
-      new Promise<{ code: number }>((resolve) => {
-        const child = spawn('ant', ['auth', 'status'], { stdio: 'ignore' });
-        child.on('error', () => resolve({ code: 1 }));
-        child.on('close', (code) => resolve({ code: code ?? 1 }));
+      new Promise<{ code: number; stdout: string }>((resolve) => {
+        const child = spawn('ant', ['auth', 'print-credentials', '--access-token'], {
+          stdio: ['ignore', 'pipe', 'ignore'],
+        });
+        let out = '';
+        child.stdout?.on('data', (d) => (out += d.toString()));
+        child.on('error', () => resolve({ code: 1, stdout: '' }));
+        child.on('close', (code) => resolve({ code: code ?? 1, stdout: out }));
       }));
-  const { code } = await run();
-  return code === 0;
+  const { code, stdout } = await run();
+  const token = stdout.trim();
+  return code === 0 && token ? token : null;
 }

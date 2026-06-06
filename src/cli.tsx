@@ -7,7 +7,7 @@ import type { Tool } from './core/tools/types.js';
 import { runOrchestrator } from './core/orchestrator.js';
 import { RealAnthropic } from './core/anthropic.js';
 import { getCredentials } from './auth/credentials.js';
-import { login, hasAntSession } from './auth/login.js';
+import { login, getAntToken } from './auth/login.js';
 import { App } from './ui/App.js';
 import { PermissionPrompt } from './ui/PermissionPrompt.js';
 
@@ -110,18 +110,25 @@ function Root() {
       if (handled === 'unknown') setNotice(`Unknown command: ${text}`);
       return;
     }
+    // Explicit creds (env/file) win; otherwise use the ant OAuth token directly
+    // (the pinned SDK does not auto-detect the ant profile).
     const creds = getCredentials();
-    if (!creds && !(await hasAntSession())) {
-      setNotice('Not logged in. Run /login or set ANTHROPIC_API_KEY.');
-      return;
+    let client: RealAnthropic;
+    if (creds) {
+      client = new RealAnthropic(creds);
+    } else {
+      const token = await getAntToken();
+      if (!token) {
+        setNotice('Not logged in. Run /login or set ANTHROPIC_API_KEY.');
+        return;
+      }
+      client = new RealAnthropic({ authToken: token });
     }
     setBusy(true);
-    // Explicit creds → use them; otherwise let the SDK auto-detect the ant session.
-    const client = creds ? new RealAnthropic(creds) : new RealAnthropic();
     const controller = new AbortController();
     controllerRef.current = controller;
     try {
-      await runOrchestrator({
+      const result = await runOrchestrator({
         userText: text,
         client,
         bus,
@@ -129,6 +136,9 @@ function Root() {
         canUseTool,
         signal: controller.signal,
       });
+      if (!result.ok) {
+        setNotice(result.error ? `Error: ${result.error}` : 'The run failed.');
+      }
     } finally {
       setBusy(false);
       controllerRef.current = null;

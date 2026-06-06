@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { login, hasAntSession } from '../../src/auth/login.js';
+import { login, getAntToken } from '../../src/auth/login.js';
 
 test('login runs the browser OAuth command when available', async () => {
   const calls: string[] = [];
@@ -21,7 +21,10 @@ test('login surfaces a failed browser flow', async () => {
   expect(result.kind).toBe('failed');
 });
 
-test('hasAntSession reflects `ant auth status` exit code', async () => {
-  expect(await hasAntSession({ runAntStatus: async () => ({ code: 0 }) })).toBe(true);
-  expect(await hasAntSession({ runAntStatus: async () => ({ code: 1 }) })).toBe(false);
+test('getAntToken returns the trimmed token on success, null on failure', async () => {
+  expect(await getAntToken({ run: async () => ({ code: 0, stdout: 'sk-ant-oat01-abc\n' }) })).toBe(
+    'sk-ant-oat01-abc',
+  );
+  expect(await getAntToken({ run: async () => ({ code: 0, stdout: '' }) })).toBeNull();
+  expect(await getAntToken({ run: async () => ({ code: 1, stdout: 'x' }) })).toBeNull();
 });
