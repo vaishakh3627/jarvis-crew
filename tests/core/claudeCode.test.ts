@@ -86,7 +86,7 @@ test('describeTool surfaces the most useful field per tool', () => {
 
 test('crew agents JSON defines the four specialists, Atlas system names them', () => {
   const agents = buildCrewAgents();
-  expect(Object.keys(agents).sort()).toEqual(['forge', 'iris', 'sentry', 'volt']);
+  expect(Object.keys(agents).sort()).toEqual(['edith', 'friday', 'iris', 'volt']);
   expect(ATLAS_SYSTEM).toContain('iris');
   expect(ATLAS_SYSTEM).toContain('Task tool');
 });

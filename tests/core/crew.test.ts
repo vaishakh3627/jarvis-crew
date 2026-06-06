@@ -2,7 +2,12 @@ import { expect, test } from 'vitest';
 import { CREW, getAgent } from '../../src/core/crew.js';
 
 test('crew has exactly the five expected agents', () => {
-  expect(CREW.map((a) => a.id).sort()).toEqual(['atlas', 'forge', 'iris', 'sentry', 'volt']);
+  expect(CREW.map((a) => a.id).sort()).toEqual(['atlas', 'edith', 'friday', 'iris', 'volt']);
+});
+
+test('every agent has a distinct color', () => {
+  const colors = CREW.map((a) => a.color);
+  expect(new Set(colors).size).toBe(colors.length);
 });
 
 test('atlas runs on opus and can delegate; specialists run on sonnet', () => {

@@ -27,14 +27,13 @@ function persona(
 
 const SPECIALIST_TOOLS = ['read', 'write', 'edit', 'glob', 'grep', 'bash'];
 
-// Each agent gets a distinct, vivid truecolor hex.
 export const CREW: AgentDefinition[] = [
-  persona('atlas', 'Atlas', '🧠', '#c084fc', 'orchestrator', 'claude-opus-4-8',
+  persona('atlas', 'Atlas', '🧠', 'magenta', 'orchestrator', 'claude-opus-4-8',
     ['read', 'glob', 'grep', 'delegate']),
-  persona('iris', 'Iris', '🎨', '#f472b6', 'UI/UX designer', 'claude-sonnet-4-6', SPECIALIST_TOOLS),
-  persona('volt', 'Volt', '⚡', '#fbbf24', 'frontend engineer', 'claude-sonnet-4-6', SPECIALIST_TOOLS),
-  persona('edith', 'Edith', '🔭', '#38bdf8', 'backend engineer', 'claude-sonnet-4-6', SPECIALIST_TOOLS),
-  persona('friday', 'Friday', '🔍', '#34d399', 'QA engineer', 'claude-sonnet-4-6', SPECIALIST_TOOLS),
+  persona('iris', 'Iris', '🎨', 'green', 'UI/UX designer', 'claude-sonnet-4-6', SPECIALIST_TOOLS),
+  persona('volt', 'Volt', '⚡', 'yellow', 'frontend engineer', 'claude-sonnet-4-6', SPECIALIST_TOOLS),
+  persona('forge', 'Forge', '🛠️', 'blue', 'backend engineer', 'claude-sonnet-4-6', SPECIALIST_TOOLS),
+  persona('sentry', 'Sentry', '🔍', 'cyan', 'QA engineer', 'claude-sonnet-4-6', SPECIALIST_TOOLS),
 ];
 
 const byId = new Map(CREW.map((a) => [a.id, a]));
@@ -45,4 +44,4 @@ export function getAgent(id: AgentId): AgentDefinition {
   return a;
 }
 
-export const SPECIALISTS: AgentId[] = ['iris', 'volt', 'edith', 'friday'];
+export const SPECIALISTS: AgentId[] = ['iris', 'volt', 'forge', 'sentry'];

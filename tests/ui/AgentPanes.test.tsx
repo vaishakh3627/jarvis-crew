@@ -5,16 +5,18 @@ import { AgentPanes } from '../../src/ui/AgentPanes.js';
 import { AgentCard } from '../../src/ui/AgentCard.js';
 import type { AgentActivity } from '../../src/core/events.js';
 
-test('AgentPanes renders one pane per active agent with its current action', () => {
+test('AgentPanes shows Atlas as the root delegating to active children', () => {
   const activities: AgentActivity[] = [
     { id: 'volt', status: 'working', progress: 0.4, action: 'LoginForm.tsx' },
-    { id: 'forge', status: 'working', progress: 0.8, action: '/api/auth' },
+    { id: 'edith', status: 'working', progress: 0.8, action: '/api/auth' },
   ];
   const { lastFrame } = render(<AgentPanes activities={activities} />);
   const frame = lastFrame() ?? '';
+  expect(frame).toContain('Atlas'); // tree root
+  expect(frame).toContain('▼'); // delegation branches
   expect(frame).toContain('Volt');
   expect(frame).toContain('LoginForm.tsx');
-  expect(frame).toContain('Forge');
+  expect(frame).toContain('Edith');
   expect(frame).toContain('/api/auth');
 });
 

@@ -4,7 +4,7 @@ import type { AgentId, EventBus, JarvisEvent } from './events.js';
 import { skillPacks } from './skills/packs.js';
 
 /** Crew members that map to Claude Code subagents (Atlas is the main session). */
-const SUBAGENTS: AgentId[] = ['iris', 'volt', 'forge', 'sentry'];
+const SUBAGENTS: AgentId[] = ['iris', 'volt', 'edith', 'friday'];
 
 function toAgentId(name: string | undefined): AgentId | null {
   if (!name) return null;
@@ -126,13 +126,13 @@ export function buildCrewAgents(): Record<string, unknown> {
   return {
     iris: def('UI/UX designer', 'iris'),
     volt: def('Frontend engineer', 'volt'),
-    forge: def('Backend engineer', 'forge'),
-    sentry: def('QA engineer', 'sentry'),
+    edith: def('Backend engineer', 'edith'),
+    friday: def('QA engineer', 'friday'),
   };
 }
 
 export const ATLAS_SYSTEM = `You are Atlas, the orchestrator of the Jarvis crew. ${skillPacks.atlas}
-You may delegate to specialist subagents named iris (UI/UX), volt (frontend), forge (backend), and sentry (QA) using the Task tool. Delegate independent pieces of work so they run in parallel, then synthesize a concise final answer.`;
+You may delegate to specialist subagents named iris (UI/UX), volt (frontend), edith (backend), and friday (QA) using the Task tool. Delegate independent pieces of work so they run in parallel, then synthesize a concise final answer.`;
 
 export interface RunClaudeCodeOptions {
   userText: string;
