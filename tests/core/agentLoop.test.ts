@@ -74,3 +74,25 @@ test('runAgent skips a denied destructive tool and feeds back a denial result', 
   expect(writeCalls).toEqual([]); // never executed
   expect(result.ok).toBe(true);
 });
+
+test('runAgent stops and returns ok:false when the signal is already aborted', async () => {
+  writeCalls.length = 0;
+  const bus = new EventBus();
+  const events: string[] = [];
+  bus.subscribe((e) => events.push(e.type));
+  const controller = new AbortController();
+  controller.abort();
+  const result = await runAgent({
+    agent: agentDef,
+    client: makeFake(),
+    tools: [writeTool],
+    bus,
+    cwd: '/tmp',
+    canUseTool: async () => true,
+    signal: controller.signal,
+    initialUserText: 'build x',
+  });
+  expect(result.ok).toBe(false);
+  expect(writeCalls).toEqual([]); // never executed
+  expect(events).toContain('agentFinished');
+});

@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Box } from 'ink';
 import { EventBus, ActivityTracker } from '../core/events.js';
 import type { JarvisEvent, AgentActivity, AgentId } from '../core/events.js';
@@ -12,10 +12,12 @@ export function App({
   bus,
   onUserSubmit,
   busy,
+  clearNonce = 0,
 }: {
   bus: EventBus;
   onUserSubmit: (text: string) => void;
   busy: boolean;
+  clearNonce?: number;
 }) {
   const trackerRef = useRef(new ActivityTracker());
   const [transcript, setTranscript] = useState<TranscriptItem[]>([]);
@@ -48,6 +50,17 @@ export function App({
     });
     return off;
   }, [bus]);
+
+  // Reset the view when /clear bumps the nonce (skip the initial mount at 0).
+  useEffect(() => {
+    if (clearNonce > 0) {
+      trackerRef.current = new ActivityTracker();
+      setTranscript([]);
+      setActivities([]);
+      setThinkingFor(null);
+      setThinkingText('');
+    }
+  }, [clearNonce]);
 
   function handleSubmit(text: string) {
     setTranscript((prev) => [...prev, { kind: 'user', text }]);

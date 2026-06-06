@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { render, Box, Text } from 'ink';
+import { render, Box, Text, useApp, useInput } from 'ink';
 import { EventBus } from './core/events.js';
 import type { AgentId } from './core/events.js';
 import type { Tool } from './core/tools/types.js';
@@ -53,6 +53,25 @@ function Root() {
   const [notice, setNotice] = useState('Type a request, or /login, /help.');
   const [pending, setPending] = useState<Pending | null>(null);
   const queue = useRef<Pending[]>([]);
+  const [clearNonce, setClearNonce] = useState(0);
+  const controllerRef = useRef<AbortController | null>(null);
+  const { exit } = useApp();
+
+  // Ctrl-C: interrupt the active run if busy, otherwise quit.
+  useInput((input, key) => {
+    if (key.ctrl && input === 'c') {
+      if (busy && controllerRef.current) {
+        controllerRef.current.abort();
+        // Unblock any pending permission awaits so the loop can observe the abort.
+        queue.current.forEach((p) => p.resolve(false));
+        queue.current = [];
+        setPending(null);
+        setNotice('Interrupted.');
+      } else {
+        exit();
+      }
+    }
+  });
 
   const canUseTool = (agent: AgentId, tool: Tool, input: unknown, _id: string) =>
     new Promise<boolean>((resolve) => {
@@ -81,7 +100,10 @@ function Root() {
         );
       },
       help: () => setNotice('Commands: /login, /help, /clear. Otherwise, describe what to build.'),
-      clear: () => setNotice('Cleared.'),
+      clear: () => {
+        setClearNonce((n) => n + 1);
+        setNotice('Cleared.');
+      },
     });
     if (handled !== 'passthrough') {
       if (handled === 'unknown') setNotice(`Unknown command: ${text}`);
@@ -95,6 +117,7 @@ function Root() {
     const creds = getCredentials()!;
     const client = new RealAnthropic(creds);
     const controller = new AbortController();
+    controllerRef.current = controller;
     try {
       await runOrchestrator({
         userText: text,
@@ -106,6 +129,7 @@ function Root() {
       });
     } finally {
       setBusy(false);
+      controllerRef.current = null;
     }
   }
 
@@ -113,7 +137,7 @@ function Root() {
     <Box flexDirection="column">
       <Text color="magenta">🛡️  Jarvis</Text>
       <Text dimColor>{notice}</Text>
-      <App bus={bus} onUserSubmit={onSubmit} busy={busy} />
+      <App bus={bus} onUserSubmit={onSubmit} busy={busy} clearNonce={clearNonce} />
       {pending ? (
         <PermissionPrompt
           agent={pending.agent}
@@ -128,5 +152,5 @@ function Root() {
 
 // Mount only when run as a binary, not when imported by tests.
 if (process.argv[1] && process.argv[1].endsWith('cli.js')) {
-  render(<Root />);
+  render(<Root />, { exitOnCtrlC: false });
 }
