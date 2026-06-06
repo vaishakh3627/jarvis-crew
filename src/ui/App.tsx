@@ -27,6 +27,7 @@ export function App({
   const [activities, setActivities] = useState<AgentActivity[]>([]);
   const [thinkingFor, setThinkingFor] = useState<AgentId | null>(null);
   const [thinkingText, setThinkingText] = useState('');
+  const [history, setHistory] = useState<string[]>([]);
 
   useLayoutEffect(() => {
     const off = bus.subscribe((event: JarvisEvent) => {
@@ -67,6 +68,7 @@ export function App({
 
   function handleSubmit(text: string) {
     setTranscript((prev) => [...prev, { kind: 'user', text }]);
+    setHistory((h) => [...h, text]);
     onUserSubmit(text);
   }
 
@@ -85,7 +87,7 @@ export function App({
         <ThinkingView agent={thinkingFor} text={thinkingText} />
       )}
       <Box marginTop={1} flexDirection="column">
-        <Input disabled={busy} onSubmit={handleSubmit} />
+        <Input disabled={busy} onSubmit={handleSubmit} history={history} />
       </Box>
       <Footer online={online} />
     </Box>

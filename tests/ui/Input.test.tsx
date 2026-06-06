@@ -16,6 +16,23 @@ test('accumulates typed characters and submits on Enter', async () => {
   expect(onSubmit).toHaveBeenCalledWith('hi');
 });
 
+test('up/down arrows recall previous inputs', async () => {
+  const onSubmit = vi.fn();
+  const { stdin, lastFrame } = render(
+    <Input disabled={false} onSubmit={onSubmit} history={['first', 'second']} />,
+  );
+  await tick();
+  stdin.write('\x1b[A'); // up → most recent
+  await tick();
+  expect(lastFrame() ?? '').toContain('second');
+  stdin.write('\x1b[A'); // up → older
+  await tick();
+  expect(lastFrame() ?? '').toContain('first');
+  stdin.write('\x1b[B'); // down → newer
+  await tick();
+  expect(lastFrame() ?? '').toContain('second');
+});
+
 test('does not submit while disabled', async () => {
   const onSubmit = vi.fn();
   const { stdin } = render(<Input disabled={true} onSubmit={onSubmit} />);
