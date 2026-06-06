@@ -2,17 +2,10 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { render, Box, Text, useApp, useInput } from 'ink';
 import { EventBus } from './core/events.js';
-import type { AgentId } from './core/events.js';
-import type { Tool } from './core/tools/types.js';
-import { runOrchestrator } from './core/orchestrator.js';
-import { RealAnthropic } from './core/anthropic.js';
-import { getCredentials } from './auth/credentials.js';
-import { login, getAntToken } from './auth/login.js';
+import { runClaudeCode } from './core/claudeCode.js';
 import { App } from './ui/App.js';
-import { PermissionPrompt } from './ui/PermissionPrompt.js';
 
 export interface SlashActions {
-  login: () => void | Promise<void>;
   help: () => void;
   clear: () => void;
 }
@@ -24,36 +17,21 @@ export async function routeSlashCommand(
   if (!input.startsWith('/')) return 'passthrough';
   const cmd = input.slice(1).split(/\s+/)[0];
   switch (cmd) {
-    case 'login': await actions.login(); return 'handled';
-    case 'help': actions.help(); return 'handled';
-    case 'clear': actions.clear(); return 'handled';
-    default: return 'unknown';
+    case 'help':
+      actions.help();
+      return 'handled';
+    case 'clear':
+      actions.clear();
+      return 'handled';
+    default:
+      return 'unknown';
   }
-}
-
-function describeInput(input: unknown): string {
-  if (input && typeof input === 'object') {
-    const o = input as Record<string, unknown>;
-    if (typeof o.path === 'string') return o.path;
-    if (typeof o.command === 'string') return o.command;
-    return JSON.stringify(input);
-  }
-  return String(input);
-}
-
-interface Pending {
-  agent: AgentId;
-  tool: string;
-  detail: string;
-  resolve: (allow: boolean) => void;
 }
 
 function Root() {
   const bus = useMemo(() => new EventBus(), []);
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState('Type a request, or /login, /help.');
-  const [pending, setPending] = useState<Pending | null>(null);
-  const queue = useRef<Pending[]>([]);
+  const [notice, setNotice] = useState('Type a request. Runs on your Claude Code (Max) login.');
   const [clearNonce, setClearNonce] = useState(0);
   const controllerRef = useRef<AbortController | null>(null);
   const { exit } = useApp();
@@ -63,10 +41,6 @@ function Root() {
     if (key.ctrl && input === 'c') {
       if (busy && controllerRef.current) {
         controllerRef.current.abort();
-        // Unblock any pending permission awaits so the loop can observe the abort.
-        queue.current.forEach((p) => p.resolve(false));
-        queue.current = [];
-        setPending(null);
         setNotice('Interrupted.');
       } else {
         exit();
@@ -74,33 +48,9 @@ function Root() {
     }
   });
 
-  const canUseTool = (agent: AgentId, tool: Tool, input: unknown, _id: string) =>
-    new Promise<boolean>((resolve) => {
-      const item: Pending = { agent, tool: tool.name, detail: describeInput(input), resolve };
-      queue.current.push(item);
-      // If nothing is currently being shown, promote this one.
-      setPending((cur) => cur ?? item);
-    });
-
-  function resolvePermission(allow: boolean) {
-    const head = queue.current.shift();
-    head?.resolve(allow);
-    setPending(queue.current[0] ?? null);
-  }
-
   async function onSubmit(text: string) {
     const handled = await routeSlashCommand(text, {
-      login: async () => {
-        const r = await login();
-        setNotice(
-          r.kind === 'browser'
-            ? 'Logged in via browser.'
-            : r.kind === 'needsApiKey'
-            ? 'No browser flow found. Set ANTHROPIC_API_KEY and restart.'
-            : 'Login failed.',
-        );
-      },
-      help: () => setNotice('Commands: /login, /help, /clear. Otherwise, describe what to build.'),
+      help: () => setNotice('Commands: /help, /clear. Otherwise, just describe what to build.'),
       clear: () => {
         setClearNonce((n) => n + 1);
         setNotice('Cleared.');
@@ -110,30 +60,14 @@ function Root() {
       if (handled === 'unknown') setNotice(`Unknown command: ${text}`);
       return;
     }
-    // Explicit creds (env/file) win; otherwise use the ant OAuth token directly
-    // (the pinned SDK does not auto-detect the ant profile).
-    const creds = getCredentials();
-    let client: RealAnthropic;
-    if (creds) {
-      client = new RealAnthropic(creds);
-    } else {
-      const token = await getAntToken();
-      if (!token) {
-        setNotice('Not logged in. Run /login or set ANTHROPIC_API_KEY.');
-        return;
-      }
-      client = new RealAnthropic({ authToken: token });
-    }
     setBusy(true);
     const controller = new AbortController();
     controllerRef.current = controller;
     try {
-      const result = await runOrchestrator({
+      const result = await runClaudeCode({
         userText: text,
-        client,
         bus,
         cwd: process.cwd(),
-        canUseTool,
         signal: controller.signal,
       });
       if (!result.ok) {
@@ -150,20 +84,11 @@ function Root() {
       <Text color="magenta">🛡️  Jarvis</Text>
       <Text dimColor>{notice}</Text>
       <App bus={bus} onUserSubmit={onSubmit} busy={busy} clearNonce={clearNonce} />
-      {pending ? (
-        <PermissionPrompt
-          agent={pending.agent}
-          tool={pending.tool}
-          detail={pending.detail}
-          onResolve={resolvePermission}
-        />
-      ) : null}
     </Box>
   );
 }
 
-// Mount only when run as the entry point (node dist/cli.js or tsx src/cli.tsx),
-// not when imported by tests.
+// Mount only when run as the entry point (node dist/cli.js or tsx src/cli.tsx).
 const entry = process.argv[1] ?? '';
 if (/[\\/]cli\.(js|tsx)$/.test(entry)) {
   render(<Root />, { exitOnCtrlC: false });
