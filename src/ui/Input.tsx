@@ -18,9 +18,12 @@ export function Input({ disabled, onSubmit }: { disabled: boolean; onSubmit: (te
     { isActive: !disabled },
   );
   return (
-    <Box>
-      <Text color="cyan">{disabled ? '… ' : '› '}</Text>
+    <Box borderStyle="bold" borderColor={disabled ? 'yellow' : 'cyan'} paddingX={1}>
+      <Text bold color={disabled ? 'yellow' : 'cyanBright'}>
+        {disabled ? '⏳ ' : '▸ '}
+      </Text>
       <Text>{value}</Text>
+      {disabled ? null : <Text color="cyanBright">▌</Text>}
     </Box>
   );
 }

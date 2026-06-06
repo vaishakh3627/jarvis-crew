@@ -1,5 +1,6 @@
 import React from 'react';
 import { Box, Text } from 'ink';
+import Spinner from 'ink-spinner';
 import type { AgentActivity } from '../core/events.js';
 import { getAgent } from '../core/crew.js';
 
@@ -13,11 +14,28 @@ export function AgentPanes({ activities }: { activities: AgentActivity[] }) {
     <Box flexDirection="row" gap={1}>
       {activities.map((a) => {
         const def = getAgent(a.id);
+        const active = a.status === 'thinking' || a.status === 'working';
         return (
-          <Box key={a.id} flexDirection="column" borderStyle="round" borderColor={def.color} paddingX={1} flexGrow={1}>
-            <Text color={def.color}>{def.emoji} {def.name}</Text>
+          <Box
+            key={a.id}
+            flexDirection="column"
+            borderStyle="bold"
+            borderColor={def.color}
+            paddingX={1}
+            flexGrow={1}
+          >
+            <Box>
+              {active ? (
+                <Text color={def.color}>
+                  <Spinner type="dots" />{' '}
+                </Text>
+              ) : null}
+              <Text bold color={def.color}>
+                {def.emoji} {def.name}
+              </Text>
+            </Box>
             <Text dimColor>{def.role}</Text>
-            <Text color={def.color}>{a.status} {bar(a.progress)}</Text>
+            <Text color={def.color}>{bar(a.progress)}</Text>
             {a.action ? <Text dimColor>{a.action}</Text> : null}
           </Box>
         );

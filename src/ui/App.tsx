@@ -7,17 +7,20 @@ import { ConversationTimeline, type TranscriptItem } from './ConversationTimelin
 import { ThinkingView } from './ThinkingView.js';
 import { AgentPanes } from './AgentPanes.js';
 import { Input } from './Input.js';
+import { Footer } from './Footer.js';
 
 export function App({
   bus,
   onUserSubmit,
   busy,
   clearNonce = 0,
+  online = true,
 }: {
   bus: EventBus;
   onUserSubmit: (text: string) => void;
   busy: boolean;
   clearNonce?: number;
+  online?: boolean;
 }) {
   const trackerRef = useRef(new ActivityTracker());
   const [transcript, setTranscript] = useState<TranscriptItem[]>([]);
@@ -84,6 +87,7 @@ export function App({
       <Box marginTop={1}>
         <Input disabled={busy} onSubmit={handleSubmit} />
       </Box>
+      <Footer online={online} />
     </Box>
   );
 }

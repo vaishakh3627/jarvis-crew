@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { render, Box, Text, useApp, useInput } from 'ink';
+import { render, Box, useApp, useInput } from 'ink';
 import { EventBus } from './core/events.js';
 import { runClaudeCode } from './core/claudeCode.js';
 import { isClaudeLoggedIn, runClaudeLogin } from './auth/claudeAuth.js';
 import { App } from './ui/App.js';
+import { Header } from './ui/Header.js';
 
 export interface SlashActions {
   login: () => void;
@@ -101,11 +102,12 @@ function Root({ onRequestLogin }: { onRequestLogin: () => void }) {
     }
   }
 
+  const status = loggedIn === null ? '…' : loggedIn ? 'MAX' : 'OFFLINE';
+
   return (
     <Box flexDirection="column">
-      <Text color="magenta">🛡️  Jarvis</Text>
-      <Text dimColor>{notice}</Text>
-      <App bus={bus} onUserSubmit={onSubmit} busy={busy} clearNonce={clearNonce} />
+      <Header notice={notice} status={status} />
+      <App bus={bus} onUserSubmit={onSubmit} busy={busy} clearNonce={clearNonce} online={loggedIn === true} />
     </Box>
   );
 }
