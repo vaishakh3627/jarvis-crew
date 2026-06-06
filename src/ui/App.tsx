@@ -84,7 +84,7 @@ export function App({
       ) : (
         <ThinkingView agent={thinkingFor} text={thinkingText} />
       )}
-      <Box marginTop={1}>
+      <Box marginTop={1} flexDirection="column">
         <Input disabled={busy} onSubmit={handleSubmit} />
       </Box>
       <Footer online={online} />

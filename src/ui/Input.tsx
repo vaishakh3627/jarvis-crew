@@ -17,13 +17,20 @@ export function Input({ disabled, onSubmit }: { disabled: boolean; onSubmit: (te
     },
     { isActive: !disabled },
   );
+  const empty = value.length === 0;
   return (
-    <Box borderStyle="bold" borderColor={disabled ? 'yellow' : 'cyan'} paddingX={1}>
+    <Box borderStyle="round" borderColor={disabled ? 'yellow' : 'cyan'} paddingX={1}>
       <Text bold color={disabled ? 'yellow' : 'cyanBright'}>
-        {disabled ? '⏳ ' : '▸ '}
+        {disabled ? '⏳' : '▸'}{' '}
       </Text>
-      <Text>{value}</Text>
-      {disabled ? null : <Text color="cyanBright">▌</Text>}
+      {empty ? (
+        <Text dimColor>{disabled ? 'working…' : 'Describe what to build…  (try /help)'}</Text>
+      ) : (
+        <Text>{value}</Text>
+      )}
+      {!disabled && !empty ? <Text color="cyanBright">▌</Text> : null}
+      <Box flexGrow={1} />
+      <Text dimColor>{disabled ? '⌃C stop' : '⏎ send'}</Text>
     </Box>
   );
 }
