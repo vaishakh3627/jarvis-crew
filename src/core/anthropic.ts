@@ -30,6 +30,7 @@ export async function* normalizeSdkStream(
 ): AsyncIterable<StreamEvent> {
   // Accumulate partial tool-use input JSON keyed by block index.
   const toolBlocks = new Map<number, { id: string; name: string; json: string }>();
+  let stopReason = 'end_turn';
   for await (const ev of raw) {
     if (ev.type === 'content_block_start' && ev.content_block?.type === 'tool_use') {
       toolBlocks.set(ev.index, { id: ev.content_block.id, name: ev.content_block.name, json: '' });
@@ -51,10 +52,9 @@ export async function* normalizeSdkStream(
         toolBlocks.delete(ev.index);
       }
     } else if (ev.type === 'message_delta' && ev.delta?.stop_reason) {
-      // hold; final stop_reason emitted at message_stop via captured value
-      (raw as any).__stopReason = ev.delta.stop_reason;
+      stopReason = ev.delta.stop_reason;
     } else if (ev.type === 'message_stop') {
-      yield { type: 'end', stopReason: (raw as any).__stopReason ?? 'end_turn' };
+      yield { type: 'end', stopReason };
     }
   }
 }

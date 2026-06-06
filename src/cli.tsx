@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { render, Box, Text } from 'ink';
 import { EventBus } from './core/events.js';
 import type { AgentId } from './core/events.js';
@@ -52,17 +52,20 @@ function Root() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('Type a request, or /login, /help.');
   const [pending, setPending] = useState<Pending | null>(null);
+  const queue = useRef<Pending[]>([]);
 
   const canUseTool = (agent: AgentId, tool: Tool, input: unknown, _id: string) =>
     new Promise<boolean>((resolve) => {
-      setPending({ agent, tool: tool.name, detail: describeInput(input), resolve });
+      const item: Pending = { agent, tool: tool.name, detail: describeInput(input), resolve };
+      queue.current.push(item);
+      // If nothing is currently being shown, promote this one.
+      setPending((cur) => cur ?? item);
     });
 
   function resolvePermission(allow: boolean) {
-    setPending((p) => {
-      p?.resolve(allow);
-      return null;
-    });
+    const head = queue.current.shift();
+    head?.resolve(allow);
+    setPending(queue.current[0] ?? null);
   }
 
   async function onSubmit(text: string) {
