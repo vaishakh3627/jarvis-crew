@@ -6,7 +6,7 @@ import { Header } from '../../src/ui/Header.js';
 test('Header renders the wordmark, notice, and a MAX badge', () => {
   const { lastFrame } = render(<Header notice="Ready to go" status="MAX" />);
   const frame = lastFrame() ?? '';
-  expect(frame).toContain('J'); // gradient wordmark letters
+  expect(frame).toContain('█'); // block-art banner
   expect(frame).toContain('Ready to go');
   expect(frame).toContain('MAX');
 });
