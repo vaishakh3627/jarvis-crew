@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { pasteClipboardImage } from './clipboard.js';
 
@@ -20,6 +20,18 @@ export function Input({
   const [value, setValue] = useState('');
   const [histIndex, setHistIndex] = useState(-1); // -1 = live input
   const [hint, setHint] = useState('');
+  const [blink, setBlink] = useState(true);
+
+  // Blink the cursor only while idle (not processing), so it's obvious where to type.
+  useEffect(() => {
+    if (disabled) {
+      setBlink(false);
+      return;
+    }
+    setBlink(true);
+    const t = setInterval(() => setBlink((b) => !b), 530);
+    return () => clearInterval(t);
+  }, [disabled]);
 
   useInput(
     (input, key) => {
@@ -86,20 +98,31 @@ export function Input({
   );
 
   const empty = value.length === 0;
+  const cursor = (
+    <Text color="cyanBright" bold>
+      {blink ? '▌' : ' '}
+    </Text>
+  );
+
   return (
     <Box flexDirection="column">
       <Box borderStyle="round" borderColor={disabled ? 'yellow' : 'cyan'} paddingX={1}>
         <Text bold color={disabled ? 'yellow' : 'cyanBright'}>
           {disabled ? '⏳' : '▸'}{' '}
         </Text>
-        {empty ? (
-          <Text dimColor>
-            {disabled ? 'working…' : 'Describe what to build…  (↑ history · ⌃V paste image)'}
-          </Text>
+        {disabled ? (
+          <Text dimColor>working…</Text>
+        ) : empty ? (
+          <>
+            {cursor}
+            <Text dimColor> Describe what to build…  (↑ history · ⌃V paste image)</Text>
+          </>
         ) : (
-          <Text>{value}</Text>
+          <>
+            <Text>{value}</Text>
+            {cursor}
+          </>
         )}
-        {!disabled && !empty ? <Text color="cyanBright">▌</Text> : null}
         <Box flexGrow={1} />
         <Text dimColor>{disabled ? '⌃C stop' : '⏎ send'}</Text>
       </Box>
