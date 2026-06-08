@@ -1,46 +1,68 @@
 # Jarvis
 
-A multi-agent coding CLI. Talk to **Atlas**, who orchestrates a crew —
-**Iris** (UI/UX), **Volt** (frontend), **Forge** (backend), **Sentry** (QA) —
-and watch them work, in parallel, in your terminal.
+A multi-agent coding CLI for your terminal. You talk to **Atlas**, the orchestrator,
+who delegates to a crew of specialists — **Iris** (UI/UX), **Volt** (frontend),
+**Edith** (backend), and **Friday** (QA) — and you watch them work, in parallel,
+each in their own color.
 
-Jarvis runs on **your Claude Code (Max/Pro) login** — it drives Claude Code
-headless under the hood, so there's **no API key and no per-token billing**.
+Jarvis runs on **your own [Claude Code](https://claude.com/claude-code) login**
+(Pro/Max) under the hood — there's **no API key to manage and no per-token billing**.
 
 ## Requirements
 
-- Node.js 20+
-- [Claude Code](https://claude.com/claude-code) installed and logged in
-  (`claude` on your PATH). Verify with `claude --version`.
+- **Node.js 20+**
+- **Claude Code** installed and signed in (`claude` on your PATH). Check with
+  `claude --version` and `claude auth status`. If you're not signed in, Jarvis
+  will prompt you — just type `/login`.
+- *(optional)* `pngpaste` for pasting clipboard images: `brew install pngpaste`
 
-## Quick start
+## Install
 
 ```bash
-npm install
-npm run build
-node dist/cli.js        # or, after `npm link`, just: jarvis
+npm install -g jarvis-crew
 ```
 
-Run it from whatever project directory you want Jarvis to work in — it edits
-files in the current working directory.
+## Use
 
-If you're not signed in, Jarvis says so on launch — type `/login` and it runs
-Claude Code's own sign-in for you.
-
-## Commands
-
-- `/login` — sign in to Claude Code (runs `claude auth login`)
-- `/help` — list commands
-- `/clear` — clear the transcript
-- **Ctrl-C** — interrupt the current run, or quit when idle
-
-Tool actions (write/edit/bash) currently run under Claude Code's `acceptEdits`
-mode — every action streams into the timeline as it happens. A live y/n
-approval prompt is a planned follow-up.
-
-## Development
+From inside any project you want to work on:
 
 ```bash
+cd ~/path/to/your-project
+jarvis
+```
+
+Jarvis edits files in the **current directory**. Describe what you want and the
+crew gets to work.
+
+### In the prompt
+
+- **↑ / ↓** — recall previous inputs
+- **Cmd+V** — paste text · **drag a file in** — attach it by path
+- **Ctrl+V** — paste a clipboard image (needs `pngpaste`)
+- **Ctrl+C** — interrupt the current run, or quit when idle
+
+### Commands
+
+- `/login` — sign in to Claude Code
+- `/help` — list commands
+- `/clear` — clear the transcript
+
+## How it works
+
+Jarvis drives Claude Code headless (`claude -p --output-format stream-json`) and
+renders its stream — thinking, tool calls, and per-agent activity — as a live
+crew UI. The specialists are Claude Code subagents; Atlas coordinates them.
+
+## Develop
+
+```bash
+git clone https://github.com/vaishakh3627/jarvis-crew.git
+cd jarvis-crew
+npm install
 npm run dev     # tsx src/cli.tsx (uses your Claude Code login)
 npm test        # vitest
 ```
+
+## License
+
+MIT © Vaishakh K
