@@ -6,6 +6,13 @@ import { skillPacks } from './skills/packs.js';
 /** Crew members that map to Claude Code subagents (Atlas is the main session). */
 const SUBAGENTS: AgentId[] = ['iris', 'volt', 'edith', 'friday'];
 
+/**
+ * The model the whole crew runs on. Defaults to the top model via the `opus`
+ * alias — Claude Code resolves it to the latest Opus (4.8 today) automatically,
+ * so it stays current with no code change. Override with the JARVIS_MODEL env.
+ */
+const TOP_MODEL = process.env.JARVIS_MODEL || 'opus';
+
 function toAgentId(name: string | undefined): AgentId | null {
   if (!name) return null;
   const n = name.toLowerCase();
@@ -121,7 +128,7 @@ export function buildCrewAgents(): Record<string, unknown> {
     description,
     prompt: skillPacks[id],
     tools,
-    model: 'sonnet',
+    model: TOP_MODEL,
   });
   return {
     iris: def(
@@ -144,12 +151,7 @@ export function buildCrewAgents(): Record<string, unknown> {
 }
 
 export const ATLAS_SYSTEM = `${skillPacks.atlas}
-You orchestrate four elite specialist subagents via the Task tool: iris (UI/UX), volt (frontend), edith (backend), and friday (QA).
-Be token-efficient and decisive. Handle simple or single-domain requests YOURSELF — do not delegate, and do not spawn a verifier — for small edits, questions, or one-file changes. Only delegate when a domain specialist or genuine parallelism clearly adds value; when you do, delegate the independent pieces in the SAME turn so they run in parallel. Reserve a Friday verification pass for changes with real risk (logic, data, security, or multiple files), and skip it for trivial work. Avoid redundant file reads and exploration; use the fewest tool calls that do the job, and keep your final answer concise and high-signal.`;
-
-// Atlas's model. Defaults to Sonnet (fast, strong, far cheaper than Opus, which
-// matters on a Max plan). Override with JARVIS_MODEL=opus for maximum depth.
-const ATLAS_MODEL = process.env.JARVIS_MODEL || 'sonnet';
+You orchestrate four elite specialist subagents via the Task tool: iris (UI/UX), volt (frontend), edith (backend), and friday (QA). Bring in the right specialist whenever their expertise raises the quality of the result, and delegate independent pieces of work in the SAME turn so they run in parallel. For anything beyond a one-line change, route a verification pass through friday and report completion only once it is verified. Optimize purely for the best possible outcome — correctness, robustness, security, and polish — and never trade quality for speed. Keep only your FINAL answer concise.`;
 
 export interface RunClaudeCodeOptions {
   userText: string;
@@ -192,7 +194,7 @@ export function runClaudeCode(opts: RunClaudeCodeOptions): Promise<RunResult> {
     '--append-system-prompt',
     ATLAS_SYSTEM,
     '--model',
-    ATLAS_MODEL,
+    TOP_MODEL,
     '--agents',
     JSON.stringify(buildCrewAgents()),
     // Self-contained: run ONLY the Jarvis crew and their charters. Ignore the

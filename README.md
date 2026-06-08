@@ -62,18 +62,13 @@ crew UI. The specialists are Claude Code subagents; Atlas coordinates them. Each
 run is **self-contained** — it ignores the host project's `CLAUDE.md`, settings,
 skills, plugins, and MCP servers, so only the crew and their charters apply.
 
-### Token usage
+### Model
 
-Jarvis is multi-agent, so it can use more of your Max quota than a single chat.
-To keep it lean:
-
-- Atlas and the specialists run on **Sonnet** by default (fast, strong, far
-  cheaper than Opus).
-- Atlas only **delegates when it actually helps** — simple or one-file tasks it
-  handles itself, no extra agents.
-- A **QA verification pass runs only when there's real risk**, not for trivial edits.
-
-For maximum depth on a hard task, run with `JARVIS_MODEL=opus jarvis`.
+The whole crew runs on the **latest Opus** — Anthropic's top model — for the
+best possible output. It uses the `opus` alias, so it tracks the newest Opus
+(4.8 today) automatically, with no code change. Multi-agent runs use more of your
+Max quota than a single chat — that's the trade for top-tier results. Prefer a
+lighter model? Set `JARVIS_MODEL=sonnet jarvis` (or any Claude model alias).
 
 ## Develop
 
