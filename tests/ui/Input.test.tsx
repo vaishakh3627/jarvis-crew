@@ -13,7 +13,7 @@ test('accumulates typed characters and submits on Enter', async () => {
   await tick();
   stdin.write('\r'); // Enter
   await tick();
-  expect(onSubmit).toHaveBeenCalledWith('hi');
+  expect(onSubmit).toHaveBeenCalledWith('hi', 'hi'); // (engineText, displayText)
 });
 
 test('up/down arrows recall previous inputs', async () => {

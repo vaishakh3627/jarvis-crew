@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { pasteClipboardImage } from './clipboard.js';
 
@@ -8,19 +8,33 @@ function sanitizePaste(s: string): string {
   return [...flat].filter((c) => c === ' ' || (c.codePointAt(0) ?? 0) >= 32).join('');
 }
 
+/** Render the value with [Image #N] tokens highlighted as chips. */
+function renderValue(v: string): React.ReactNode[] {
+  return v.split(/(\[Image #\d+\])/g).map((part, i) =>
+    /^\[Image #\d+\]$/.test(part) ? (
+      <Text key={i} bold color="magenta">
+        {part}
+      </Text>
+    ) : (
+      <Text key={i}>{part}</Text>
+    ),
+  );
+}
+
 export function Input({
   disabled,
   onSubmit,
   history = [],
 }: {
   disabled: boolean;
-  onSubmit: (text: string) => void;
+  onSubmit: (engineText: string, displayText: string) => void;
   history?: string[];
 }) {
   const [value, setValue] = useState('');
   const [histIndex, setHistIndex] = useState(-1); // -1 = live input
   const [hint, setHint] = useState('');
   const [blink, setBlink] = useState(true);
+  const imagesRef = useRef<string[]>([]); // attached image paths, in order
 
   // Blink the cursor only while idle (not processing), so it's obvious where to type.
   useEffect(() => {
@@ -57,13 +71,15 @@ export function Input({
         return;
       }
 
-      // Ctrl+V — paste an image from the clipboard
+      // Ctrl+V — paste a clipboard image as an [Image #N] chip
       if (key.ctrl && input === 'v') {
         setHint('pasting image…');
         void pasteClipboardImage().then((r) => {
           if ('path' in r) {
-            setValue((v) => (v ? `${v} ${r.path}` : r.path));
-            setHint('image attached ✓');
+            const n = imagesRef.current.length + 1;
+            imagesRef.current = [...imagesRef.current, r.path];
+            setValue((v) => `${v && !v.endsWith(' ') ? `${v} ` : v}[Image #${n}] `);
+            setHint(`Image #${n} attached ✓`);
           } else {
             setHint(r.error);
           }
@@ -72,8 +88,18 @@ export function Input({
       }
 
       if (key.return) {
-        if (value.trim()) onSubmit(value.trim());
+        const display = value.trim();
+        if (display) {
+          // Engine text: swap each [Image #k] chip for its real file path so the
+          // agent can read the image; the transcript keeps the clean chip.
+          let engine = value;
+          imagesRef.current.forEach((p, i) => {
+            engine = engine.replace(`[Image #${i + 1}]`, p);
+          });
+          onSubmit(engine.trim(), display);
+        }
         setValue('');
+        imagesRef.current = [];
         setHistIndex(-1);
         setHint('');
         return;
@@ -119,7 +145,7 @@ export function Input({
           </>
         ) : (
           <>
-            <Text>{value}</Text>
+            <Text>{renderValue(value)}</Text>
             {cursor}
           </>
         )}

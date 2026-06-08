@@ -66,10 +66,12 @@ export function App({
     }
   }, [clearNonce]);
 
-  function handleSubmit(text: string) {
-    setTranscript((prev) => [...prev, { kind: 'user', text }]);
-    setHistory((h) => [...h, text]);
-    onUserSubmit(text);
+  function handleSubmit(engineText: string, displayText: string) {
+    // Transcript + history show the clean text (with [Image #N] chips); the
+    // engine receives the resolved text (with real image paths).
+    setTranscript((prev) => [...prev, { kind: 'user', text: displayText }]);
+    setHistory((h) => [...h, displayText]);
+    onUserSubmit(engineText);
   }
 
   const activeAgents = activities.filter((a) => a.status === 'working' || a.status === 'thinking');
