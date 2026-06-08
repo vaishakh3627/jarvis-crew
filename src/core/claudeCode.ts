@@ -144,7 +144,12 @@ export function buildCrewAgents(): Record<string, unknown> {
 }
 
 export const ATLAS_SYSTEM = `${skillPacks.atlas}
-You orchestrate four elite specialist subagents via the Task tool: iris (UI/UX), volt (frontend), edith (backend), and friday (QA). Delegate independent pieces of work in the SAME turn so they run in parallel. Always route a verification pass through friday for non-trivial work, and only report completion once it is verified. Then synthesize a concise, high-signal final answer.`;
+You orchestrate four elite specialist subagents via the Task tool: iris (UI/UX), volt (frontend), edith (backend), and friday (QA).
+Be token-efficient and decisive. Handle simple or single-domain requests YOURSELF — do not delegate, and do not spawn a verifier — for small edits, questions, or one-file changes. Only delegate when a domain specialist or genuine parallelism clearly adds value; when you do, delegate the independent pieces in the SAME turn so they run in parallel. Reserve a Friday verification pass for changes with real risk (logic, data, security, or multiple files), and skip it for trivial work. Avoid redundant file reads and exploration; use the fewest tool calls that do the job, and keep your final answer concise and high-signal.`;
+
+// Atlas's model. Defaults to Sonnet (fast, strong, far cheaper than Opus, which
+// matters on a Max plan). Override with JARVIS_MODEL=opus for maximum depth.
+const ATLAS_MODEL = process.env.JARVIS_MODEL || 'sonnet';
 
 export interface RunClaudeCodeOptions {
   userText: string;
@@ -187,7 +192,7 @@ export function runClaudeCode(opts: RunClaudeCodeOptions): Promise<RunResult> {
     '--append-system-prompt',
     ATLAS_SYSTEM,
     '--model',
-    'opus',
+    ATLAS_MODEL,
     '--agents',
     JSON.stringify(buildCrewAgents()),
     // Self-contained: run ONLY the Jarvis crew and their charters. Ignore the

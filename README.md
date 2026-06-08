@@ -58,7 +58,22 @@ crew gets to work.
 
 Jarvis drives Claude Code headless (`claude -p --output-format stream-json`) and
 renders its stream — thinking, tool calls, and per-agent activity — as a live
-crew UI. The specialists are Claude Code subagents; Atlas coordinates them.
+crew UI. The specialists are Claude Code subagents; Atlas coordinates them. Each
+run is **self-contained** — it ignores the host project's `CLAUDE.md`, settings,
+skills, plugins, and MCP servers, so only the crew and their charters apply.
+
+### Token usage
+
+Jarvis is multi-agent, so it can use more of your Max quota than a single chat.
+To keep it lean:
+
+- Atlas and the specialists run on **Sonnet** by default (fast, strong, far
+  cheaper than Opus).
+- Atlas only **delegates when it actually helps** — simple or one-file tasks it
+  handles itself, no extra agents.
+- A **QA verification pass runs only when there's real risk**, not for trivial edits.
+
+For maximum depth on a hard task, run with `JARVIS_MODEL=opus jarvis`.
 
 ## Develop
 
