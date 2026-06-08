@@ -1,6 +1,6 @@
 {
   "name": "jarvis-crew",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "A multi-agent coding CLI — talk to Atlas, who orchestrates a crew (Iris, Volt, Edith, Friday) that edits your code in parallel, right in your terminal. Runs on your Claude Code login.",
   "type": "module",
   "bin": {
