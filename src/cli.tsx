@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { render, Box, useApp, useInput } from 'ink';
+import { fileURLToPath } from 'node:url';
+import { realpathSync } from 'node:fs';
 import { EventBus } from './core/events.js';
 import { runClaudeCode } from './core/claudeCode.js';
 import { isClaudeLoggedIn, runClaudeLogin } from './auth/claudeAuth.js';
@@ -127,8 +129,19 @@ async function handleLogin(): Promise<void> {
   mount();
 }
 
-// Mount only when run as the entry point (node dist/cli.js or tsx src/cli.tsx).
-const entry = process.argv[1] ?? '';
-if (/[\\/]cli\.(js|tsx)$/.test(entry)) {
+// Mount only when this file is the entry point — works for `node dist/cli.js`,
+// `tsx src/cli.tsx`, AND the global `jarvis` symlink (which we resolve via
+// realpath). Stays false when imported by tests.
+function isEntrypoint(): boolean {
+  const argv1 = process.argv[1];
+  if (!argv1) return false;
+  try {
+    return realpathSync(argv1) === fileURLToPath(import.meta.url);
+  } catch {
+    return false;
+  }
+}
+
+if (isEntrypoint()) {
   mount();
 }
