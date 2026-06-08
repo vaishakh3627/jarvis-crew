@@ -190,6 +190,13 @@ export function runClaudeCode(opts: RunClaudeCodeOptions): Promise<RunResult> {
     'opus',
     '--agents',
     JSON.stringify(buildCrewAgents()),
+    // Self-contained: run ONLY the Jarvis crew and their charters. Ignore the
+    // host project's settings, CLAUDE.md, skills, plugins, MCP servers, and any
+    // local subagents — so behavior is identical in every project.
+    '--setting-sources',
+    '',
+    '--strict-mcp-config',
+    '--disable-slash-commands',
   ];
 
   // Show Atlas immediately; the parser emits agentStarted on the first message.
