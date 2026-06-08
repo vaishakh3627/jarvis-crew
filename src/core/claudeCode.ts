@@ -117,22 +117,34 @@ export class StreamParser {
 /** Build the `--agents` JSON defining the four specialist subagents. */
 export function buildCrewAgents(): Record<string, unknown> {
   const tools = ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'Bash'];
-  const def = (role: string, id: AgentId) => ({
-    description: `${role}. Delegate ${role.toLowerCase()} work to this agent.`,
+  const def = (id: AgentId, description: string) => ({
+    description,
     prompt: skillPacks[id],
     tools,
     model: 'sonnet',
   });
   return {
-    iris: def('UI/UX designer', 'iris'),
-    volt: def('Frontend engineer', 'volt'),
-    edith: def('Backend engineer', 'edith'),
-    friday: def('QA engineer', 'friday'),
+    iris: def(
+      'iris',
+      'Principal product designer (UI/UX). Use for any design, layout, visual hierarchy, design-system, motion, or accessibility work.',
+    ),
+    volt: def(
+      'volt',
+      'Principal frontend engineer (React/TypeScript). Use to build or refactor UI components, client state, styling, and browser logic.',
+    ),
+    edith: def(
+      'edith',
+      'Principal backend engineer. Use for APIs, data models, auth, databases, server logic, security, and performance.',
+    ),
+    friday: def(
+      'friday',
+      'Principal QA engineer/SDET. Use to design and RUN tests, hunt edge cases, and verify any change before it is considered done.',
+    ),
   };
 }
 
-export const ATLAS_SYSTEM = `You are Atlas, the orchestrator of the Jarvis crew. ${skillPacks.atlas}
-You may delegate to specialist subagents named iris (UI/UX), volt (frontend), edith (backend), and friday (QA) using the Task tool. Delegate independent pieces of work so they run in parallel, then synthesize a concise final answer.`;
+export const ATLAS_SYSTEM = `${skillPacks.atlas}
+You orchestrate four elite specialist subagents via the Task tool: iris (UI/UX), volt (frontend), edith (backend), and friday (QA). Delegate independent pieces of work in the SAME turn so they run in parallel. Always route a verification pass through friday for non-trivial work, and only report completion once it is verified. Then synthesize a concise, high-signal final answer.`;
 
 export interface RunClaudeCodeOptions {
   userText: string;
