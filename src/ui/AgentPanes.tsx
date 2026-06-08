@@ -32,11 +32,10 @@ function AgentBox({ activity, grow }: { activity: AgentActivity; grow?: boolean 
           </Text>
         )}
         <AgentChip id={activity.id} />
-        <Text color={def.color} dimColor>
-          {' '}
-          {def.role}
-        </Text>
       </Box>
+      <Text color={def.color} dimColor>
+        {def.role}
+      </Text>
       <Text color={def.color}>{bar(activity.progress)}</Text>
       {activity.action ? <Text dimColor>{activity.action}</Text> : null}
     </Box>

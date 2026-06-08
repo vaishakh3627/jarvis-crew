@@ -8,6 +8,13 @@ each in their own color.
 Jarvis runs on **your own [Claude Code](https://claude.com/claude-code) login**
 (Pro/Max) under the hood — there's **no API key to manage and no per-token billing**.
 
+## See the crew work in parallel
+
+When a task fans out, **Atlas** delegates to the specialists and they run **at the
+same time** — each in their own color, with a live spinner and progress:
+
+![Jarvis — the crew working in parallel](https://raw.githubusercontent.com/vaishakh3627/jarvis-crew/main/media/parallel-ui.png)
+
 ## Requirements
 
 - **Node.js 20+**
