@@ -5,6 +5,8 @@ import { EventBus, ActivityTracker } from '../core/events.js';
 import type { JarvisEvent, AgentActivity, AgentId } from '../core/events.js';
 import { isEditTool, summarizeEdit, summarizeChanges, type FileChange } from '../core/diff.js';
 import { formatDuration, formatTokens } from '../core/format.js';
+import { Speaker } from '../core/speech.js';
+import type { SpeakMode } from '../core/config.js';
 import { CrewStatusLine } from './CrewStatusLine.js';
 import { TranscriptRow, splitTranscript, type TranscriptItem } from './ConversationTimeline.js';
 import { ThinkingView } from './ThinkingView.js';
@@ -31,11 +33,17 @@ export function App({
   onUserSubmit,
   busy,
   online = true,
+  speakMode = 'off',
+  injectText = '',
+  injectNonce = 0,
 }: {
   bus: EventBus;
   onUserSubmit: (text: string) => void;
   busy: boolean;
   online?: boolean;
+  speakMode?: SpeakMode;
+  injectText?: string;
+  injectNonce?: number;
 }) {
   const trackerRef = useRef(new ActivityTracker());
   const [transcript, setTranscript] = useState<TranscriptItem[]>([]);
@@ -53,6 +61,27 @@ export function App({
   const changesRef = useRef<FileChange[]>([]);
   const startRef = useRef<number | null>(null);
   const prevBusyRef = useRef(false);
+  // Read-aloud: one Speaker, plus the latest transcript and which messages we've
+  // already spoken (so 'all' mode doesn't repeat).
+  const speakerRef = useRef(new Speaker());
+  const transcriptRef = useRef<TranscriptItem[]>([]);
+  transcriptRef.current = transcript;
+  const spokenRef = useRef(new Set<number>());
+
+  // Stop any speech when the component goes away.
+  useEffect(() => () => speakerRef.current.stop(), []);
+
+  // 'all' mode: speak each agent message as soon as it's finalized (committed).
+  useEffect(() => {
+    if (speakMode !== 'all') return;
+    const { committed } = splitTranscript(transcript);
+    committed.forEach((item, i) => {
+      if (item.kind === 'agentText' && !spokenRef.current.has(i)) {
+        spokenRef.current.add(i);
+        speakerRef.current.speak(item.text);
+      }
+    });
+  }, [transcript, speakMode]);
 
   useLayoutEffect(() => {
     const off = bus.subscribe((event: JarvisEvent) => {
@@ -117,8 +146,14 @@ export function App({
         ]);
       }
       changesRef.current = [];
+      // 'final' mode: read just Atlas's closing message once the run is done.
+      if (speakMode === 'final') {
+        const last = [...transcriptRef.current].reverse().find((it) => it.kind === 'agentText');
+        if (last && last.kind === 'agentText') speakerRef.current.speak(last.text);
+      }
     }
     prevBusyRef.current = busy;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busy]);
 
   // Tick the elapsed clock once a second while a run is in flight.
@@ -131,6 +166,8 @@ export function App({
   }, [busy]);
 
   function handleSubmit(engineText: string, displayText: string) {
+    // A new turn cuts off any reply still being read aloud.
+    speakerRef.current.stop();
     // Transcript + history show the clean text (with [Image #N] chips); the
     // engine receives the resolved text (with real image paths).
     setTranscript((prev) => [...prev, { kind: 'user', text: displayText }]);
@@ -169,7 +206,13 @@ export function App({
           </Box>
         ) : null}
         <Box marginTop={1} flexDirection="column">
-          <Input busy={busy} onSubmit={handleSubmit} history={history} />
+          <Input
+            busy={busy}
+            onSubmit={handleSubmit}
+            history={history}
+            injectText={injectText}
+            injectNonce={injectNonce}
+          />
         </Box>
         <Footer online={online} />
       </Box>

@@ -54,3 +54,18 @@ test('stays typeable while busy so the user can interject with /btw', async () =
   await tick();
   expect(onSubmit).toHaveBeenCalledWith('/btw fix it', '/btw fix it');
 });
+
+test('injects dictated text into the box when the nonce changes', async () => {
+  const onSubmit = vi.fn();
+  const { rerender, stdin, lastFrame } = render(
+    <Input onSubmit={onSubmit} injectText="" injectNonce={0} />,
+  );
+  await tick();
+  rerender(<Input onSubmit={onSubmit} injectText="open the dashboard" injectNonce={1} />);
+  await tick();
+  expect(lastFrame() ?? '').toContain('open the dashboard');
+  // The injected text is editable and submits normally.
+  stdin.write('\r');
+  await tick();
+  expect(onSubmit).toHaveBeenCalledWith('open the dashboard', 'open the dashboard');
+});

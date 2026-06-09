@@ -15,8 +15,13 @@ import {
   writeConfig,
   isDevopsEnabled,
   setDevopsEnabled,
+  getSpeakMode,
+  setSpeakMode as persistSpeakMode,
+  cycleSpeakMode,
+  type SpeakMode,
 } from './core/config.js';
 import { planAlias, createAlias, aliasInstructions } from './core/setup.js';
+import { Dictation, hearAvailable } from './core/dictation.js';
 import { App } from './ui/App.js';
 import { Header } from './ui/Header.js';
 
@@ -28,6 +33,7 @@ export interface SlashActions {
   compact: () => void;
   devops: () => void;
   btw: (note: string) => void;
+  speak: () => void;
 }
 
 export async function routeSlashCommand(
@@ -59,6 +65,9 @@ export async function routeSlashCommand(
     case 'btw':
       actions.btw(rest);
       return 'handled';
+    case 'speak':
+      actions.speak();
+      return 'handled';
     default:
       return 'unknown';
   }
@@ -78,7 +87,33 @@ function Root({ onRequestLogin, onRequestClear }: { onRequestLogin: () => void; 
   const controllerRef = useRef<AbortController | null>(null);
   // /btw notes dropped while the crew is busy, delivered when Atlas is free.
   const btwQueueRef = useRef<string[]>([]);
+  // Voice: read-aloud mode + push-to-talk dictation.
+  const [speakMode, setSpeakMode] = useState<SpeakMode>(() => getSpeakMode());
+  const [injectText, setInjectText] = useState('');
+  const [injectNonce, setInjectNonce] = useState(0);
+  const dictationRef = useRef(new Dictation());
   const { exit } = useApp();
+
+  // ⌃T — push-to-talk: start the mic, then drop the transcript into the box.
+  function toggleDictation() {
+    if (dictationRef.current.active) {
+      const text = dictationRef.current.stop().trim();
+      if (text) {
+        setInjectText(text);
+        setInjectNonce((n) => n + 1);
+        setNotice('🎤 Transcribed — review and press Enter to send.');
+      } else {
+        setNotice('🎤 Didn’t catch anything. ⌃T to try again.');
+      }
+      return;
+    }
+    if (!hearAvailable()) {
+      setNotice('Dictation needs the `hear` CLI — run: brew install hear');
+      return;
+    }
+    dictationRef.current.start();
+    setNotice('🎤 Listening… speak, then ⌃T to stop.');
+  }
 
   // A /btw turn: a direct line to Atlas (no crew), on the same session.
   async function runBtw(note: string) {
@@ -141,7 +176,7 @@ function Root({ onRequestLogin, onRequestClear }: { onRequestLogin: () => void; 
     );
   }, []);
 
-  // Ctrl-C: interrupt the active run if busy, otherwise quit.
+  // ⌃C interrupts/quits; ⌃T toggles push-to-talk dictation.
   useInput((input, key) => {
     if (key.ctrl && input === 'c') {
       if (busy && controllerRef.current) {
@@ -150,6 +185,8 @@ function Root({ onRequestLogin, onRequestClear }: { onRequestLogin: () => void; 
       } else {
         exit();
       }
+    } else if (key.ctrl && input === 't') {
+      toggleDictation();
     }
   });
 
@@ -163,8 +200,20 @@ function Root({ onRequestLogin, onRequestClear }: { onRequestLogin: () => void; 
       },
       help: () =>
         setNotice(
-          'Commands: /login, /logout, /btw <note>, /compact, /devops, /clear, /help. Otherwise, just describe what to build.',
+          'Commands: /login, /logout, /btw <note>, /speak, /compact, /devops, /clear, /help · ⌃T to dictate.',
         ),
+      speak: () => {
+        const next = cycleSpeakMode(speakMode);
+        persistSpeakMode(next);
+        setSpeakMode(next);
+        setNotice(
+          next === 'off'
+            ? '🔈 Read-aloud off.'
+            : next === 'final'
+              ? '🔊 Read-aloud: final summary only.'
+              : '🔊 Read-aloud: everything.',
+        );
+      },
       clear: () => onRequestClear(),
       compact: () => {
         void handleCompact();
@@ -240,7 +289,15 @@ function Root({ onRequestLogin, onRequestClear }: { onRequestLogin: () => void; 
   return (
     <Box flexDirection="column">
       <Header notice={notice} status={status} name={name} />
-      <App bus={bus} onUserSubmit={onSubmit} busy={busy} online={loggedIn === true} />
+      <App
+        bus={bus}
+        onUserSubmit={onSubmit}
+        busy={busy}
+        online={loggedIn === true}
+        speakMode={speakMode}
+        injectText={injectText}
+        injectNonce={injectNonce}
+      />
     </Box>
   );
 }

@@ -26,6 +26,8 @@ export function Input({
   busy = false,
   onSubmit,
   history = [],
+  injectText = '',
+  injectNonce = 0,
 }: {
   /** Fully locked — no input at all. */
   disabled?: boolean;
@@ -33,12 +35,24 @@ export function Input({
   busy?: boolean;
   onSubmit: (engineText: string, displayText: string) => void;
   history?: string[];
+  /** Text to drop into the box (e.g. from dictation); applied when nonce changes. */
+  injectText?: string;
+  injectNonce?: number;
 }) {
   const [value, setValue] = useState('');
   const [histIndex, setHistIndex] = useState(-1); // -1 = live input
   const [hint, setHint] = useState('');
   const [blink, setBlink] = useState(true);
   const imagesRef = useRef<string[]>([]); // attached image paths, in order
+
+  // Dictation (or any caller) can drop transcribed text into the box for review.
+  useEffect(() => {
+    if (injectNonce > 0) {
+      setValue(injectText);
+      setHistIndex(-1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [injectNonce]);
 
   // Blink the cursor only while idle (not locked, not running), so it's obvious where to type.
   useEffect(() => {

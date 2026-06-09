@@ -10,6 +10,9 @@ import {
   validateName,
   isDevopsEnabled,
   setDevopsEnabled,
+  getSpeakMode,
+  setSpeakMode,
+  cycleSpeakMode,
 } from '../../src/core/config.js';
 
 let dir: string;
@@ -30,7 +33,7 @@ test('config defaults to jarvis until written, then round-trips', () => {
 
   writeConfig({ name: 'friday' });
   expect(configExists()).toBe(true);
-  expect(readConfig()).toEqual({ name: 'friday', devops: false });
+  expect(readConfig()).toEqual({ name: 'friday', devops: false, speak: 'off' });
   expect(getDisplayName()).toBe('friday');
 });
 
@@ -45,6 +48,20 @@ test('devops is off by default and toggles while preserving the name', () => {
   setDevopsEnabled(false);
   expect(isDevopsEnabled()).toBe(false);
   expect(getDisplayName()).toBe('friday');
+});
+
+test('speak mode defaults off, cycles off→final→all→off, and persists', () => {
+  expect(cycleSpeakMode('off')).toBe('final');
+  expect(cycleSpeakMode('final')).toBe('all');
+  expect(cycleSpeakMode('all')).toBe('off');
+
+  expect(getSpeakMode()).toBe('off');
+  writeConfig({ name: 'jarvis', devops: true });
+  setSpeakMode('final');
+  expect(getSpeakMode()).toBe('final');
+  // toggles don't clobber each other
+  expect(isDevopsEnabled()).toBe(true);
+  expect(getDisplayName()).toBe('jarvis');
 });
 
 test('validateName accepts clean tokens and normalizes case/whitespace', () => {

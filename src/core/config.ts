@@ -16,10 +16,16 @@ function configPath(): string {
   return join(jarvisConfigDir(), 'config.json');
 }
 
+/** How much of a run's output to read aloud. */
+export type SpeakMode = 'off' | 'final' | 'all';
+const SPEAK_MODES: SpeakMode[] = ['off', 'final', 'all'];
+
 export interface JarvisConfig {
   name: string;
   /** Whether the optional Forge (DevOps/release) agent is on the crew. */
   devops?: boolean;
+  /** Read-aloud mode for replies. */
+  speak?: SpeakMode;
 }
 
 /** Whether first-run setup has already happened. */
@@ -31,7 +37,8 @@ export function readConfig(): JarvisConfig | null {
   try {
     const obj = JSON.parse(readFileSync(configPath(), 'utf8'));
     if (!obj || typeof obj.name !== 'string') return null;
-    return { name: obj.name, devops: obj.devops === true };
+    const speak: SpeakMode = SPEAK_MODES.includes(obj.speak) ? obj.speak : 'off';
+    return { name: obj.name, devops: obj.devops === true, speak };
   } catch {
     return null;
   }
@@ -40,6 +47,12 @@ export function readConfig(): JarvisConfig | null {
 export function writeConfig(cfg: JarvisConfig): void {
   mkdirSync(jarvisConfigDir(), { recursive: true, mode: 0o700 });
   writeFileSync(configPath(), JSON.stringify(cfg, null, 2));
+}
+
+/** Read-modify-write: update some fields, preserve the rest. */
+export function patchConfig(partial: Partial<JarvisConfig>): void {
+  const current = readConfig() ?? { name: 'jarvis' };
+  writeConfig({ ...current, ...partial });
 }
 
 /** The assistant's name for the banner + command. Defaults to 'jarvis'. */
@@ -54,8 +67,22 @@ export function isDevopsEnabled(): boolean {
 
 /** Toggle the Forge (DevOps) agent, preserving the rest of the config. */
 export function setDevopsEnabled(enabled: boolean): void {
-  const current = readConfig();
-  writeConfig({ name: current?.name || 'jarvis', devops: enabled });
+  patchConfig({ devops: enabled });
+}
+
+/** The read-aloud mode. Defaults to 'off'. */
+export function getSpeakMode(): SpeakMode {
+  return readConfig()?.speak ?? 'off';
+}
+
+/** Persist the read-aloud mode, preserving the rest of the config. */
+export function setSpeakMode(mode: SpeakMode): void {
+  patchConfig({ speak: mode });
+}
+
+/** Cycle off → final → all → off. */
+export function cycleSpeakMode(mode: SpeakMode): SpeakMode {
+  return mode === 'off' ? 'final' : mode === 'final' ? 'all' : 'off';
 }
 
 // A safe command token that also fits the ASCII banner: a lowercase letter

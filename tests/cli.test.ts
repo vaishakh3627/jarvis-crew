@@ -10,6 +10,7 @@ function makeActions() {
     compact: vi.fn(),
     devops: vi.fn(),
     btw: vi.fn(),
+    speak: vi.fn(),
   };
 }
 
@@ -27,6 +28,8 @@ test('routes known slash commands', async () => {
   expect(actions.compact).toHaveBeenCalled();
   expect(await routeSlashCommand('/devops', actions)).toBe('handled');
   expect(actions.devops).toHaveBeenCalled();
+  expect(await routeSlashCommand('/speak', actions)).toBe('handled');
+  expect(actions.speak).toHaveBeenCalled();
 });
 
 test('/btw is handled and forwards the note text to Atlas', async () => {
