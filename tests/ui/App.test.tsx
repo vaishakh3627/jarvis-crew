@@ -28,16 +28,3 @@ test('App switches to split panes when two agents are active', async () => {
   expect(frame).toContain('Button.tsx');
 });
 
-test('App clears the transcript when clearNonce increments', async () => {
-  const bus = new EventBus();
-  const { lastFrame, rerender } = render(
-    <App bus={bus} onUserSubmit={() => {}} busy={false} clearNonce={0} />,
-  );
-  bus.emit({ type: 'agentStarted', agent: 'atlas', task: 'x' });
-  bus.emit({ type: 'text', agent: 'atlas', text: 'hello world' });
-  await flush();
-  expect(lastFrame() ?? '').toContain('hello world');
-  rerender(<App bus={bus} onUserSubmit={() => {}} busy={false} clearNonce={1} />);
-  await flush();
-  expect(lastFrame() ?? '').not.toContain('hello world');
-});

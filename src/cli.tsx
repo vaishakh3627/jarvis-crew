@@ -40,11 +40,10 @@ export async function routeSlashCommand(
   }
 }
 
-function Root({ onRequestLogin }: { onRequestLogin: () => void }) {
+function Root({ onRequestLogin, onRequestClear }: { onRequestLogin: () => void; onRequestClear: () => void }) {
   const bus = useMemo(() => new EventBus(), []);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('Checking your Jarvis sign-in…');
-  const [clearNonce, setClearNonce] = useState(0);
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
   const { exit } = useApp();
@@ -80,10 +79,7 @@ function Root({ onRequestLogin }: { onRequestLogin: () => void }) {
         setNotice('Signed out. Type /login to sign back in.');
       },
       help: () => setNotice('Commands: /login, /logout, /help, /clear. Otherwise, just describe what to build.'),
-      clear: () => {
-        setClearNonce((n) => n + 1);
-        setNotice('Cleared.');
-      },
+      clear: () => onRequestClear(),
     });
     if (handled !== 'passthrough') {
       if (handled === 'unknown') setNotice(`Unknown command: ${text}`);
@@ -117,7 +113,7 @@ function Root({ onRequestLogin }: { onRequestLogin: () => void }) {
   return (
     <Box flexDirection="column">
       <Header notice={notice} status={status} />
-      <App bus={bus} onUserSubmit={onSubmit} busy={busy} clearNonce={clearNonce} online={loggedIn === true} />
+      <App bus={bus} onUserSubmit={onSubmit} busy={busy} online={loggedIn === true} />
     </Box>
   );
 }
@@ -125,7 +121,9 @@ function Root({ onRequestLogin }: { onRequestLogin: () => void }) {
 let currentInstance: ReturnType<typeof render> | null = null;
 
 function mount(): void {
-  currentInstance = render(<Root onRequestLogin={handleLogin} />, { exitOnCtrlC: false });
+  currentInstance = render(<Root onRequestLogin={handleLogin} onRequestClear={handleClear} />, {
+    exitOnCtrlC: false,
+  });
 }
 
 /** Release the terminal, run Jarvis's browser sign-in, then remount. */
@@ -135,6 +133,18 @@ async function handleLogin(): Promise<void> {
   process.stdout.write('\nSigning in to Jarvis — your browser will open…\n');
   const { ok } = await runJarvisLogin();
   process.stdout.write(ok ? '\nSigned in to Jarvis.\n' : '\nSign-in did not complete. Try /login again.\n');
+  mount();
+}
+
+/**
+ * Remount on /clear. <Static> output (the transcript) lives in the terminal
+ * scrollback and can't be un-printed within a running Ink instance, so a fresh
+ * instance + a screen+scrollback clear is the clean way to start over.
+ */
+function handleClear(): void {
+  currentInstance?.unmount();
+  currentInstance = null;
+  process.stdout.write('\x1B[2J\x1B[3J\x1B[H'); // clear screen, scrollback, home cursor
   mount();
 }
 

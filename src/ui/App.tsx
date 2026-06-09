@@ -1,9 +1,9 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Box } from 'ink';
+import React, { useLayoutEffect, useRef, useState } from 'react';
+import { Box, Static } from 'ink';
 import { EventBus, ActivityTracker } from '../core/events.js';
 import type { JarvisEvent, AgentActivity, AgentId } from '../core/events.js';
 import { CrewStatusLine } from './CrewStatusLine.js';
-import { ConversationTimeline, type TranscriptItem } from './ConversationTimeline.js';
+import { TranscriptRow, splitTranscript, type TranscriptItem } from './ConversationTimeline.js';
 import { ThinkingView } from './ThinkingView.js';
 import { AgentPanes } from './AgentPanes.js';
 import { Input } from './Input.js';
@@ -13,13 +13,11 @@ export function App({
   bus,
   onUserSubmit,
   busy,
-  clearNonce = 0,
   online = true,
 }: {
   bus: EventBus;
   onUserSubmit: (text: string) => void;
   busy: boolean;
-  clearNonce?: number;
   online?: boolean;
 }) {
   const trackerRef = useRef(new ActivityTracker());
@@ -55,17 +53,6 @@ export function App({
     return off;
   }, [bus]);
 
-  // Reset the view when /clear bumps the nonce (skip the initial mount at 0).
-  useEffect(() => {
-    if (clearNonce > 0) {
-      trackerRef.current = new ActivityTracker();
-      setTranscript([]);
-      setActivities([]);
-      setThinkingFor(null);
-      setThinkingText('');
-    }
-  }, [clearNonce]);
-
   function handleSubmit(engineText: string, displayText: string) {
     // Transcript + history show the clean text (with [Image #N] chips); the
     // engine receives the resolved text (with real image paths).
@@ -76,22 +63,32 @@ export function App({
 
   const activeAgents = activities.filter((a) => a.status === 'working' || a.status === 'thinking');
   const parallel = activeAgents.length >= 2;
+  // Completed messages go into <Static> (printed once, never repainted); only
+  // the in-flight message + live dashboard re-render. This keeps the repainted
+  // frame under the terminal height, so Ink never full-screen-clears (the cause
+  // of the flicker when several agents stream at once).
+  const { committed, live } = splitTranscript(transcript);
 
   return (
     <Box flexDirection="column">
-      <CrewStatusLine activities={activities} />
-      <Box marginY={1} flexDirection="column">
-        <ConversationTimeline items={transcript} />
+      <Static items={committed}>{(item, i) => <TranscriptRow key={i} item={item} />}</Static>
+      <Box flexDirection="column">
+        {live ? (
+          <Box marginTop={1} flexDirection="column">
+            <TranscriptRow item={live} />
+          </Box>
+        ) : null}
+        <CrewStatusLine activities={activities} />
+        {parallel ? (
+          <AgentPanes activities={activeAgents} />
+        ) : (
+          <ThinkingView agent={thinkingFor} text={thinkingText} />
+        )}
+        <Box marginTop={1} flexDirection="column">
+          <Input disabled={busy} onSubmit={handleSubmit} history={history} />
+        </Box>
+        <Footer online={online} />
       </Box>
-      {parallel ? (
-        <AgentPanes activities={activeAgents} />
-      ) : (
-        <ThinkingView agent={thinkingFor} text={thinkingText} />
-      )}
-      <Box marginTop={1} flexDirection="column">
-        <Input disabled={busy} onSubmit={handleSubmit} history={history} />
-      </Box>
-      <Footer online={online} />
     </Box>
   );
 }
