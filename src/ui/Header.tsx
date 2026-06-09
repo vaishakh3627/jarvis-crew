@@ -1,26 +1,33 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Box, Text } from 'ink';
+import figlet from 'figlet';
 import { GradientText, GradientRule } from './gradient.js';
 
-// "JARVIS" in figlet ANSI Shadow.
-const BANNER = [
-  '     ██╗ █████╗ ██████╗ ██╗   ██╗██╗███████╗',
-  '     ██║██╔══██╗██╔══██╗██║   ██║██║██╔════╝',
-  '     ██║███████║██████╔╝██║   ██║██║███████╗',
-  '██   ██║██╔══██║██╔══██╗╚██╗ ██╔╝██║╚════██║',
-  '╚█████╔╝██║  ██║██║  ██║ ╚████╔╝ ██║███████║',
-  ' ╚════╝ ╚═╝  ╚═╝╚═╝  ╚═╝  ╚═══╝  ╚═╝╚══════╝',
-];
-const WIDTH = Math.max(...BANNER.map((l) => [...l].length));
-const PADDED = BANNER.map((l) => l + ' '.repeat(WIDTH - [...l].length));
+/** The assistant's name as ANSI-Shadow ASCII art, padded to a uniform width. */
+export function bannerLines(name: string): string[] {
+  const art = figlet.textSync(name.toUpperCase(), { font: 'ANSI Shadow' });
+  const lines = art.split('\n').map((l) => l.replace(/\s+$/, ''));
+  while (lines.length && lines[lines.length - 1] === '') lines.pop();
+  const width = Math.max(...lines.map((l) => [...l].length));
+  return lines.map((l) => l + ' '.repeat(width - [...l].length));
+}
 
-export function Header({ notice, status }: { notice: string; status: string }) {
+export function Header({
+  notice,
+  status,
+  name = 'jarvis',
+}: {
+  notice: string;
+  status: string;
+  name?: string;
+}) {
+  const padded = useMemo(() => bannerLines(name), [name]);
   const max = status === 'MAX';
   const ruleWidth = Math.min(process.stdout.columns ?? 80, 96) - 1;
   return (
     <Box flexDirection="column">
       <Box flexDirection="column" marginTop={1} marginLeft={1}>
-        {PADDED.map((line, i) => (
+        {padded.map((line, i) => (
           <GradientText key={i} text={line} bold />
         ))}
       </Box>

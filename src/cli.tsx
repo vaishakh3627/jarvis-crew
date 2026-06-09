@@ -5,7 +5,10 @@ import { fileURLToPath } from 'node:url';
 import { realpathSync } from 'node:fs';
 import { EventBus } from './core/events.js';
 import { runClaudeCode } from './core/claudeCode.js';
+import { createInterface } from 'node:readline';
 import { isJarvisLoggedIn, runJarvisLogin, clearJarvisToken } from './auth/jarvisAuth.js';
+import { configExists, getDisplayName, validateName, writeConfig } from './core/config.js';
+import { planAlias, createAlias, aliasInstructions } from './core/setup.js';
 import { App } from './ui/App.js';
 import { Header } from './ui/Header.js';
 
@@ -42,6 +45,7 @@ export async function routeSlashCommand(
 
 function Root({ onRequestLogin, onRequestClear }: { onRequestLogin: () => void; onRequestClear: () => void }) {
   const bus = useMemo(() => new EventBus(), []);
+  const name = useMemo(() => getDisplayName(), []);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('Checking your Jarvis sign-in…');
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
@@ -112,7 +116,7 @@ function Root({ onRequestLogin, onRequestClear }: { onRequestLogin: () => void; 
 
   return (
     <Box flexDirection="column">
-      <Header notice={notice} status={status} />
+      <Header notice={notice} status={status} name={name} />
       <App bus={bus} onUserSubmit={onSubmit} busy={busy} online={loggedIn === true} />
     </Box>
   );
@@ -148,6 +152,46 @@ function handleClear(): void {
   mount();
 }
 
+/**
+ * One-time naming wizard. Runs before the Ink app mounts (so it can prompt on a
+ * real terminal), stores the chosen name, and — for a custom name — adds a
+ * command alias so typing that name launches Jarvis too.
+ */
+async function runSetup(): Promise<void> {
+  // Non-interactive (piped / CI): take the default silently rather than hang.
+  if (!process.stdin.isTTY) {
+    writeConfig({ name: 'jarvis' });
+    return;
+  }
+  process.stdout.write('\n  Welcome to Jarvis — your multi-agent coding crew.\n\n');
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  const ask = (q: string) => new Promise<string>((res) => rl.question(q, res));
+
+  let name = 'jarvis';
+  for (;;) {
+    const raw = await ask("  Name this assistant — press Enter for 'jarvis', or type a custom name: ");
+    const v = validateName(raw);
+    if (v.ok) {
+      name = v.name;
+      break;
+    }
+    process.stdout.write(`  ${v.error}\n`);
+  }
+  rl.close();
+  writeConfig({ name });
+
+  if (name === 'jarvis') {
+    process.stdout.write('\n  ✓ All set. Launching…\n\n');
+    return;
+  }
+  const plan = planAlias(name, process.argv[1]);
+  if (createAlias(plan)) {
+    process.stdout.write(`\n  ✓ Run \`${name}\` (or \`jarvis\`) anytime to launch.\n\n`);
+  } else {
+    process.stdout.write('\n' + aliasInstructions(plan, name).replace(/^/gm, '  ') + '\n\n');
+  }
+}
+
 // Mount only when this file is the entry point — works for `node dist/cli.js`,
 // `tsx src/cli.tsx`, AND the global `jarvis` symlink (which we resolve via
 // realpath). Stays false when imported by tests.
@@ -161,6 +205,14 @@ function isEntrypoint(): boolean {
   }
 }
 
-if (isEntrypoint()) {
+async function main(): Promise<void> {
+  // `jarvis setup` re-runs the wizard; otherwise run it once on first launch.
+  if (process.argv[2] === 'setup' || !configExists()) {
+    await runSetup();
+  }
   mount();
+}
+
+if (isEntrypoint()) {
+  void main();
 }

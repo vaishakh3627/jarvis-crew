@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { jarvisConfigDir } from '../core/config.js';
 
 /**
  * Jarvis owns its OWN Anthropic credential rather than inheriting whatever
@@ -12,11 +12,6 @@ import { mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
  * injected into every `claude` subprocess via CLAUDE_CODE_OAUTH_TOKEN — which
  * takes precedence over the keychain, so Jarvis stays independent.
  */
-
-/** Jarvis's config directory (override with JARVIS_CONFIG_DIR, e.g. in tests). */
-export function jarvisConfigDir(): string {
-  return process.env.JARVIS_CONFIG_DIR || join(homedir(), '.jarvis');
-}
 
 function authFilePath(): string {
   return join(jarvisConfigDir(), 'auth.json');

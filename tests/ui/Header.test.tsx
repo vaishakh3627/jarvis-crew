@@ -1,7 +1,28 @@
 import { expect, test } from 'vitest';
 import React from 'react';
 import { render } from 'ink-testing-library';
-import { Header } from '../../src/ui/Header.js';
+import { Header, bannerLines } from '../../src/ui/Header.js';
+
+// The exact ANSI-Shadow art the banner showed before it became name-driven.
+const JARVIS_ART = [
+  '     ██╗ █████╗ ██████╗ ██╗   ██╗██╗███████╗',
+  '     ██║██╔══██╗██╔══██╗██║   ██║██║██╔════╝',
+  '     ██║███████║██████╔╝██║   ██║██║███████╗',
+  '██   ██║██╔══██║██╔══██╗╚██╗ ██╔╝██║╚════██║',
+  '╚█████╔╝██║  ██║██║  ██║ ╚████╔╝ ██║███████║',
+  ' ╚════╝ ╚═╝  ╚═╝╚═╝  ╚═╝  ╚═══╝  ╚═╝╚══════╝',
+];
+
+test('the default jarvis banner stays pixel-identical to the original art', () => {
+  expect(bannerLines('jarvis')).toEqual(JARVIS_ART);
+});
+
+test('a custom name renders its own uniform-width ASCII art', () => {
+  const lines = bannerLines('friday');
+  expect(lines.length).toBeGreaterThan(3);
+  expect(lines.join('\n')).toContain('█');
+  expect(new Set(lines.map((l) => [...l].length)).size).toBe(1);
+});
 
 test('Header renders the wordmark, notice, and a MAX badge', () => {
   const { lastFrame } = render(<Header notice="Ready to go" status="MAX" />);
