@@ -6,6 +6,7 @@ import {
   ATLAS_SYSTEM,
   buildRunArgs,
   buildCompactArgs,
+  buildBtwArgs,
   compactSession,
   atlasSystem,
 } from '../../src/core/claudeCode.js';
@@ -117,6 +118,18 @@ test('buildRunArgs creates the session on the first turn and resumes it after', 
   // Both turns still run the self-contained crew with slash commands disabled.
   expect(first).toContain('--disable-slash-commands');
   expect(next).toContain('--disable-slash-commands');
+});
+
+test('buildBtwArgs goes direct to Atlas — no crew, no Task tool', () => {
+  const args = buildBtwArgs('quick question', 'sess-1', true);
+  expect(args.slice(0, 2)).toEqual(['-p', 'quick question']);
+  expect(args).not.toContain('--agents'); // no crew shipped
+  expect(args).not.toContain('Task'); // so Atlas can't delegate
+  expect(args).toContain('--resume');
+  expect(args[args.indexOf('--resume') + 1]).toBe('sess-1');
+
+  // A /btw as the very first message creates the session instead of resuming.
+  expect(buildBtwArgs('hi', 'sess-1', false)).toContain('--session-id');
 });
 
 test('buildCompactArgs resumes the session and keeps slash commands enabled', () => {

@@ -169,7 +169,7 @@ export function App({
           </Box>
         ) : null}
         <Box marginTop={1} flexDirection="column">
-          <Input disabled={busy} onSubmit={handleSubmit} history={history} />
+          <Input busy={busy} onSubmit={handleSubmit} history={history} />
         </Box>
         <Footer online={online} />
       </Box>

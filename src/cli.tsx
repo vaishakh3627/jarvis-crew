@@ -27,6 +27,7 @@ export interface SlashActions {
   clear: () => void;
   compact: () => void;
   devops: () => void;
+  btw: (note: string) => void;
 }
 
 export async function routeSlashCommand(
@@ -35,6 +36,7 @@ export async function routeSlashCommand(
 ): Promise<'handled' | 'unknown' | 'passthrough'> {
   if (!input.startsWith('/')) return 'passthrough';
   const cmd = input.slice(1).split(/\s+/)[0];
+  const rest = input.slice(1 + cmd.length).trim();
   switch (cmd) {
     case 'login':
       actions.login();
@@ -54,6 +56,9 @@ export async function routeSlashCommand(
     case 'devops':
       actions.devops();
       return 'handled';
+    case 'btw':
+      actions.btw(rest);
+      return 'handled';
     default:
       return 'unknown';
   }
@@ -71,7 +76,41 @@ function Root({ onRequestLogin, onRequestClear }: { onRequestLogin: () => void; 
   const [notice, setNotice] = useState('Checking your Jarvis sign-in…');
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
+  // /btw notes dropped while the crew is busy, delivered when Atlas is free.
+  const btwQueueRef = useRef<string[]>([]);
   const { exit } = useApp();
+
+  // A /btw turn: a direct line to Atlas (no crew), on the same session.
+  async function runBtw(note: string) {
+    setBusy(true);
+    setNotice('Atlas is on your note…');
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    try {
+      const result = await runClaudeCode({
+        userText: note,
+        bus,
+        cwd: process.cwd(),
+        signal: controller.signal,
+        sessionId,
+        resume: startedRef.current,
+        devops,
+        direct: true,
+      });
+      if (!result.ok) setNotice(result.error ? `Error: ${result.error}` : 'The note failed.');
+    } finally {
+      startedRef.current = true;
+      setBusy(false);
+      controllerRef.current = null;
+      drainBtw();
+    }
+  }
+
+  // Run the next queued /btw once Atlas is free.
+  function drainBtw() {
+    const next = btwQueueRef.current.shift();
+    if (next) void runBtw(next);
+  }
 
   async function handleCompact() {
     if (loggedIn === false) {
@@ -124,11 +163,28 @@ function Root({ onRequestLogin, onRequestClear }: { onRequestLogin: () => void; 
       },
       help: () =>
         setNotice(
-          'Commands: /login, /logout, /compact, /devops, /clear, /help. Otherwise, just describe what to build.',
+          'Commands: /login, /logout, /btw <note>, /compact, /devops, /clear, /help. Otherwise, just describe what to build.',
         ),
       clear: () => onRequestClear(),
       compact: () => {
         void handleCompact();
+      },
+      btw: (note: string) => {
+        if (loggedIn === false) {
+          setNotice('Not signed in. Type /login first.');
+          return;
+        }
+        const text = note.trim();
+        if (!text) {
+          setNotice('Usage: /btw <a quick note or question for Atlas>');
+          return;
+        }
+        if (busy) {
+          btwQueueRef.current.push(text);
+          setNotice(`📝 Noted — Atlas will pick it up when free (${btwQueueRef.current.length} queued).`);
+        } else {
+          void runBtw(text);
+        }
       },
       devops: () => {
         const next = !devops;
@@ -147,6 +203,11 @@ function Root({ onRequestLogin, onRequestClear }: { onRequestLogin: () => void; 
     }
     if (loggedIn === false) {
       setNotice('Not signed in. Type /login first.');
+      return;
+    }
+    if (busy) {
+      // A run is already in flight — don't start a second on the same session.
+      setNotice('Atlas is busy — drop a /btw note, or wait for the current task.');
       return;
     }
     setBusy(true);
@@ -170,6 +231,7 @@ function Root({ onRequestLogin, onRequestClear }: { onRequestLogin: () => void; 
       startedRef.current = true;
       setBusy(false);
       controllerRef.current = null;
+      drainBtw();
     }
   }
 

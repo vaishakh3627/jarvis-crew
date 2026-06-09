@@ -43,3 +43,14 @@ test('does not submit while disabled', async () => {
   await tick();
   expect(onSubmit).not.toHaveBeenCalled();
 });
+
+test('stays typeable while busy so the user can interject with /btw', async () => {
+  const onSubmit = vi.fn();
+  const { stdin } = render(<Input busy={true} onSubmit={onSubmit} />);
+  await tick();
+  stdin.write('/btw fix it');
+  await tick();
+  stdin.write('\r');
+  await tick();
+  expect(onSubmit).toHaveBeenCalledWith('/btw fix it', '/btw fix it');
+});

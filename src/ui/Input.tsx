@@ -22,11 +22,15 @@ function renderValue(v: string): React.ReactNode[] {
 }
 
 export function Input({
-  disabled,
+  disabled = false,
+  busy = false,
   onSubmit,
   history = [],
 }: {
-  disabled: boolean;
+  /** Fully locked — no input at all. */
+  disabled?: boolean;
+  /** A run is in flight: still typeable so the user can interject with /btw. */
+  busy?: boolean;
   onSubmit: (engineText: string, displayText: string) => void;
   history?: string[];
 }) {
@@ -36,16 +40,16 @@ export function Input({
   const [blink, setBlink] = useState(true);
   const imagesRef = useRef<string[]>([]); // attached image paths, in order
 
-  // Blink the cursor only while idle (not processing), so it's obvious where to type.
+  // Blink the cursor only while idle (not locked, not running), so it's obvious where to type.
   useEffect(() => {
-    if (disabled) {
+    if (disabled || busy) {
       setBlink(false);
       return;
     }
     setBlink(true);
     const t = setInterval(() => setBlink((b) => !b), 530);
     return () => clearInterval(t);
-  }, [disabled]);
+  }, [disabled, busy]);
 
   useInput(
     (input, key) => {
@@ -124,24 +128,31 @@ export function Input({
   );
 
   const empty = value.length === 0;
+  // Steady cursor while typing or running; blink only on an idle, empty prompt.
+  const cursorVisible = !disabled && (!empty || busy || blink);
   const cursor = (
     <Text color="cyanBright" bold>
-      {blink ? '▌' : ' '}
+      {cursorVisible ? '▌' : ' '}
     </Text>
   );
+  const accent = disabled || busy ? 'yellow' : 'cyan';
 
   return (
     <Box flexDirection="column">
-      <Box borderStyle="round" borderColor={disabled ? 'yellow' : 'cyan'} paddingX={1}>
-        <Text bold color={disabled ? 'yellow' : 'cyanBright'}>
-          {disabled ? '⏳' : '▸'}{' '}
+      <Box borderStyle="round" borderColor={accent} paddingX={1}>
+        <Text bold color={disabled || busy ? 'yellow' : 'cyanBright'}>
+          {disabled || busy ? '⏳' : '▸'}{' '}
         </Text>
         {disabled ? (
           <Text dimColor>working…</Text>
         ) : empty ? (
           <>
             {cursor}
-            <Text dimColor> Describe what to build…  (↑ history · ⌃V paste image)</Text>
+            <Text dimColor>
+              {busy
+                ? ' Atlas is working — type /btw <note> to interject…'
+                : ' Describe what to build…  (↑ history · ⌃V paste image)'}
+            </Text>
           </>
         ) : (
           <>
@@ -150,7 +161,7 @@ export function Input({
           </>
         )}
         <Box flexGrow={1} />
-        <Text dimColor>{disabled ? '⌃C stop' : '⏎ send'}</Text>
+        <Text dimColor>{busy ? '⏎ /btw · ⌃C stop' : disabled ? '⌃C stop' : '⏎ send'}</Text>
       </Box>
       {hint ? <Text dimColor> {hint}</Text> : null}
     </Box>

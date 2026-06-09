@@ -188,6 +188,44 @@ export function atlasSystem(devops: boolean): string {
   return devops ? ATLAS_SYSTEM + FORGE_CLAUSE : ATLAS_SYSTEM;
 }
 
+/** System prompt for a /btw aside — Atlas answers directly, no delegation. */
+export const BTW_SYSTEM = `You are Atlas, lead of the Jarvis crew. The user just sent a quick "by the way" aside. Handle it YOURSELF — directly and concisely, with no delegation and no specialists. If it's a question, just answer it; if it needs a small, clear action, do it and say what you did. Keep it short.`;
+
+/**
+ * Args for a /btw turn: a direct line to Atlas. Resumes the same session for
+ * context, but ships NO crew (`--agents` omitted) and NO `Task` tool, so Atlas
+ * handles it himself instead of spinning up specialists. Pure/testable.
+ */
+export function buildBtwArgs(userText: string, sessionId: string, resume: boolean): string[] {
+  return [
+    '-p',
+    userText,
+    '--output-format',
+    'stream-json',
+    '--verbose',
+    '--permission-mode',
+    'acceptEdits',
+    '--allowedTools',
+    'Read',
+    'Edit',
+    'Write',
+    'Bash',
+    'Glob',
+    'Grep',
+    'WebSearch',
+    'WebFetch',
+    '--append-system-prompt',
+    BTW_SYSTEM,
+    '--model',
+    TOP_MODEL,
+    '--setting-sources',
+    '',
+    '--strict-mcp-config',
+    '--disable-slash-commands',
+    ...(resume ? ['--resume', sessionId] : ['--session-id', sessionId]),
+  ];
+}
+
 export interface RunClaudeCodeOptions {
   userText: string;
   bus: EventBus;
@@ -199,6 +237,8 @@ export interface RunClaudeCodeOptions {
   resume: boolean;
   /** Whether the opt-in Forge (DevOps) agent is on the crew. */
   devops: boolean;
+  /** A /btw aside: go straight to Atlas, no crew. */
+  direct?: boolean;
   /** Override the binary (tests). Defaults to "claude". */
   command?: string;
 }
@@ -255,7 +295,9 @@ export function buildRunArgs(userText: string, sessionId: string, resume: boolea
  */
 export function runClaudeCode(opts: RunClaudeCodeOptions): Promise<RunResult> {
   const { userText, bus, cwd, signal } = opts;
-  const args = buildRunArgs(userText, opts.sessionId, opts.resume, opts.devops);
+  const args = opts.direct
+    ? buildBtwArgs(userText, opts.sessionId, opts.resume)
+    : buildRunArgs(userText, opts.sessionId, opts.resume, opts.devops);
 
   // Show Atlas immediately; the parser emits agentStarted on the first message.
   bus.emit({ type: 'activity', activity: { id: 'atlas', status: 'thinking', progress: 0.1 } });
