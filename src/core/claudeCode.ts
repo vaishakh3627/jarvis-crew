@@ -52,6 +52,7 @@ export class StreamParser {
   private agentByParent = new Map<string, AgentId>();
   private toolNameById = new Map<string, string>();
   private started = new Set<AgentId>();
+  private outputTokens = 0;
 
   handle(obj: any): JarvisEvent[] {
     const out: JarvisEvent[] = [];
@@ -60,6 +61,11 @@ export class StreamParser {
     if (type === 'assistant' && obj.message?.content) {
       const agent = this.agentFor(obj.parent_tool_use_id);
       this.ensureStarted(agent, out);
+      const generated = obj.message?.usage?.output_tokens;
+      if (typeof generated === 'number') {
+        this.outputTokens += generated;
+        out.push({ type: 'stats', outputTokens: this.outputTokens });
+      }
       for (const block of obj.message.content) {
         if (block.type === 'thinking') {
           if (block.thinking) out.push({ type: 'thinking', agent, text: block.thinking });

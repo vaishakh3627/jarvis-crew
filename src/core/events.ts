@@ -18,6 +18,7 @@ export type JarvisEvent =
   | { type: 'permissionResolved'; agent: AgentId; id: string; allow: boolean }
   | { type: 'agentStarted'; agent: AgentId; task: string }
   | { type: 'agentFinished'; agent: AgentId; ok: boolean }
+  | { type: 'stats'; outputTokens: number }
   | { type: 'activity'; activity: AgentActivity };
 
 export type Listener = (event: JarvisEvent) => void;

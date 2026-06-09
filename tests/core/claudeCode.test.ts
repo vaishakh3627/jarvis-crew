@@ -78,6 +78,22 @@ test('attributes subagent activity via Task tool + parent_tool_use_id', () => {
   expect(finished).toEqual(['atlas', 'volt']);
 });
 
+test('StreamParser accumulates output tokens from usage into stats events', () => {
+  const parser = new StreamParser();
+  const first = parser.handle({
+    type: 'assistant',
+    parent_tool_use_id: null,
+    message: { content: [{ type: 'text', text: 'hi' }], usage: { output_tokens: 100 } },
+  });
+  const second = parser.handle({
+    type: 'assistant',
+    parent_tool_use_id: null,
+    message: { content: [{ type: 'text', text: 'more' }], usage: { output_tokens: 50 } },
+  });
+  expect(first.find((e) => e.type === 'stats')).toMatchObject({ outputTokens: 100 });
+  expect(second.find((e) => e.type === 'stats')).toMatchObject({ outputTokens: 150 });
+});
+
 test('describeTool surfaces the most useful field per tool', () => {
   expect(describeTool('Write', { file_path: 'x.ts', content: '...' })).toBe('x.ts');
   expect(describeTool('Bash', { command: 'npm test' })).toBe('npm test');

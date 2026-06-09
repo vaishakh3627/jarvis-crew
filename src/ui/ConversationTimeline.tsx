@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import type { AgentId } from '../core/events.js';
+import type { DiffLine, FileChange } from '../core/diff.js';
 import { getAgent } from '../core/crew.js';
 import { Markdown } from './Markdown.js';
 import { AgentChip, YouChip } from './AgentBadge.js';
@@ -8,7 +9,18 @@ import { AgentChip, YouChip } from './AgentBadge.js';
 export type TranscriptItem =
   | { kind: 'user'; text: string }
   | { kind: 'agentText'; agent: AgentId; text: string }
-  | { kind: 'tool'; agent: AgentId; tool: string; detail: string; ok: boolean };
+  | { kind: 'tool'; agent: AgentId; tool: string; detail: string; ok: boolean }
+  | {
+      kind: 'diff';
+      agent: AgentId;
+      file: string;
+      added: number;
+      removed: number;
+      startLine: number | null;
+      lines: DiffLine[];
+      more: number;
+    }
+  | { kind: 'summary'; files: FileChange[]; totalAdded: number; totalRemoved: number };
 
 /**
  * Split the transcript into items safe to freeze in <Static> (printed once,
@@ -66,8 +78,90 @@ function Gutter({ color, children }: { color: string; children: React.ReactNode 
   );
 }
 
+function basename(path: string): string {
+  const parts = path.split('/');
+  return parts[parts.length - 1] || path;
+}
+
+/** A file edit shown as a real diff: header, counts, and changed lines. */
+function DiffView({ item }: { item: Extract<TranscriptItem, { kind: 'diff' }> }) {
+  const def = getAgent(item.agent);
+  const gutter = Math.max(
+    3,
+    ...item.lines.map((l) => String(l.newNo ?? l.oldNo ?? '').length),
+  );
+  const num = (n?: number) => (n != null ? String(n) : '').padStart(gutter, ' ');
+  return (
+    <Box flexDirection="column" marginLeft={2} marginBottom={1}>
+      <Box>
+        <Text color={def.color}>{def.emoji} </Text>
+        <Text color={def.color} bold>
+          ✎ Update
+        </Text>
+        <Text dimColor>({item.file})</Text>
+      </Box>
+      <Box marginLeft={2}>
+        <Text color="green">+{item.added}</Text>
+        <Text dimColor> · </Text>
+        <Text color="red">−{item.removed}</Text>
+      </Box>
+      <Box flexDirection="column" marginLeft={2}>
+        {item.lines.map((l, i) => {
+          if (l.kind === 'add') {
+            return (
+              <Text key={i} color="green">
+                {num(l.newNo)} + {l.text}
+              </Text>
+            );
+          }
+          if (l.kind === 'del') {
+            return (
+              <Text key={i} color="red">
+                {num(l.oldNo)} − {l.text}
+              </Text>
+            );
+          }
+          return (
+            <Text key={i} dimColor>
+              {num(l.newNo)}   {l.text}
+            </Text>
+          );
+        })}
+        {item.more > 0 ? <Text dimColor>{' '.repeat(gutter)} …+{item.more} more lines</Text> : null}
+      </Box>
+    </Box>
+  );
+}
+
+/** End-of-run "what changed": files touched with their +/- totals. */
+function SummaryView({ item }: { item: Extract<TranscriptItem, { kind: 'summary' }> }) {
+  if (item.files.length === 0) return null;
+  return (
+    <Box flexDirection="column" marginLeft={1} marginBottom={1}>
+      <Box>
+        <Text bold color="cyan">
+          ✔ Changed {item.files.length} file{item.files.length === 1 ? '' : 's'}{' '}
+        </Text>
+        <Text color="green">+{item.totalAdded}</Text>
+        <Text dimColor> </Text>
+        <Text color="red">−{item.totalRemoved}</Text>
+      </Box>
+      {item.files.map((f, i) => (
+        <Box key={i} marginLeft={2}>
+          <Text dimColor>• {basename(f.file)} </Text>
+          <Text color="green">+{f.added}</Text>
+          <Text dimColor> </Text>
+          <Text color="red">−{f.removed}</Text>
+        </Box>
+      ))}
+    </Box>
+  );
+}
+
 /** Renders a single transcript item. Callers supply the React key. */
 export function TranscriptRow({ item }: { item: TranscriptItem }) {
+  if (item.kind === 'diff') return <DiffView item={item} />;
+  if (item.kind === 'summary') return <SummaryView item={item} />;
   if (item.kind === 'user') {
     return (
       <Gutter color="cyan">
