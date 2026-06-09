@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import type { AgentId, EventBus, JarvisEvent } from './events.js';
 import { skillPacks } from './skills/packs.js';
+import { jarvisAuthEnv } from '../auth/jarvisAuth.js';
 
 /** Crew members that map to Claude Code subagents (Atlas is the main session). */
 const SUBAGENTS: AgentId[] = ['iris', 'volt', 'edith', 'friday'];
@@ -213,6 +214,9 @@ export function runClaudeCode(opts: RunClaudeCodeOptions): Promise<RunResult> {
     const child = spawn(opts.command ?? 'claude', args, {
       cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
+      // Authenticate as Jarvis (its own OAuth token), not the host's ~/.claude
+      // login. CLAUDE_CODE_OAUTH_TOKEN overrides keychain/config credentials.
+      env: jarvisAuthEnv(),
     });
 
     const parser = new StreamParser();

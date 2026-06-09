@@ -5,12 +5,13 @@ import { fileURLToPath } from 'node:url';
 import { realpathSync } from 'node:fs';
 import { EventBus } from './core/events.js';
 import { runClaudeCode } from './core/claudeCode.js';
-import { isClaudeLoggedIn, runClaudeLogin } from './auth/claudeAuth.js';
+import { isJarvisLoggedIn, runJarvisLogin, clearJarvisToken } from './auth/jarvisAuth.js';
 import { App } from './ui/App.js';
 import { Header } from './ui/Header.js';
 
 export interface SlashActions {
   login: () => void;
+  logout: () => void;
   help: () => void;
   clear: () => void;
 }
@@ -24,6 +25,9 @@ export async function routeSlashCommand(
   switch (cmd) {
     case 'login':
       actions.login();
+      return 'handled';
+    case 'logout':
+      actions.logout();
       return 'handled';
     case 'help':
       actions.help();
@@ -39,21 +43,20 @@ export async function routeSlashCommand(
 function Root({ onRequestLogin }: { onRequestLogin: () => void }) {
   const bus = useMemo(() => new EventBus(), []);
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState('Checking your Claude Code login…');
+  const [notice, setNotice] = useState('Checking your Jarvis sign-in…');
   const [clearNonce, setClearNonce] = useState(0);
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
   const { exit } = useApp();
 
   useEffect(() => {
-    isClaudeLoggedIn().then((ok) => {
-      setLoggedIn(ok);
-      setNotice(
-        ok
-          ? 'Ready — running on your Claude Code (Max) login. Describe what to build, or /help.'
-          : 'Not signed in to Claude Code. Type /login to sign in.',
-      );
-    });
+    const ok = isJarvisLoggedIn();
+    setLoggedIn(ok);
+    setNotice(
+      ok
+        ? 'Ready — signed in to Jarvis. Describe what to build, or /help.'
+        : 'Welcome to Jarvis. Type /login to sign in.',
+    );
   }, []);
 
   // Ctrl-C: interrupt the active run if busy, otherwise quit.
@@ -71,7 +74,12 @@ function Root({ onRequestLogin }: { onRequestLogin: () => void }) {
   async function onSubmit(text: string) {
     const handled = await routeSlashCommand(text, {
       login: () => onRequestLogin(),
-      help: () => setNotice('Commands: /login, /help, /clear. Otherwise, just describe what to build.'),
+      logout: () => {
+        clearJarvisToken();
+        setLoggedIn(false);
+        setNotice('Signed out. Type /login to sign back in.');
+      },
+      help: () => setNotice('Commands: /login, /logout, /help, /clear. Otherwise, just describe what to build.'),
       clear: () => {
         setClearNonce((n) => n + 1);
         setNotice('Cleared.');
@@ -82,7 +90,7 @@ function Root({ onRequestLogin }: { onRequestLogin: () => void }) {
       return;
     }
     if (loggedIn === false) {
-      setNotice('Not signed in to Claude Code. Type /login first.');
+      setNotice('Not signed in. Type /login first.');
       return;
     }
     setBusy(true);
@@ -120,12 +128,13 @@ function mount(): void {
   currentInstance = render(<Root onRequestLogin={handleLogin} />, { exitOnCtrlC: false });
 }
 
-/** Release the terminal, run Claude Code's interactive login, then remount. */
+/** Release the terminal, run Jarvis's browser sign-in, then remount. */
 async function handleLogin(): Promise<void> {
   currentInstance?.unmount();
   currentInstance = null;
-  process.stdout.write('\n');
-  await runClaudeLogin();
+  process.stdout.write('\nSigning in to Jarvis — your browser will open…\n');
+  const { ok } = await runJarvisLogin();
+  process.stdout.write(ok ? '\nSigned in to Jarvis.\n' : '\nSign-in did not complete. Try /login again.\n');
   mount();
 }
 

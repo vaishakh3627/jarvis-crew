@@ -4,7 +4,7 @@ import { Box, Text } from 'ink';
 export function Footer({ online }: { online: boolean }) {
   return (
     <Box marginTop={1}>
-      <Text dimColor>⌃C interrupt · /login · /help · /clear · </Text>
+      <Text dimColor>⌃C interrupt · {online ? '/logout' : '/login'} · /help · /clear · </Text>
       <Text bold color={online ? 'green' : 'gray'}>
         {online ? '◆ MAX' : '◌ offline'}
       </Text>
