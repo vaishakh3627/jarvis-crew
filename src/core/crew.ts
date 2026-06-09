@@ -26,6 +26,8 @@ function persona(
 }
 
 const SPECIALIST_TOOLS = ['read', 'write', 'edit', 'glob', 'grep', 'bash'];
+// Reviewers are read-only: they inspect and report findings, never edit.
+const REVIEW_TOOLS = ['read', 'glob', 'grep', 'bash'];
 
 // Each agent gets a distinct, vivid truecolor hex.
 export const CREW: AgentDefinition[] = [
@@ -35,6 +37,8 @@ export const CREW: AgentDefinition[] = [
   persona('volt', 'Volt', '⚡', '#fbbf24', 'frontend engineer', 'claude-sonnet-4-6', SPECIALIST_TOOLS),
   persona('edith', 'Edith', '🔭', '#38bdf8', 'backend engineer', 'claude-sonnet-4-6', SPECIALIST_TOOLS),
   persona('friday', 'Friday', '🔍', '#34d399', 'QA engineer', 'claude-sonnet-4-6', SPECIALIST_TOOLS),
+  persona('vision', 'Vision', '👁', '#818cf8', 'frontend reviewer', 'claude-sonnet-4-6', REVIEW_TOOLS),
+  persona('sentry', 'Sentry', '🛡', '#f87171', 'backend reviewer', 'claude-sonnet-4-6', REVIEW_TOOLS),
 ];
 
 const byId = new Map(CREW.map((a) => [a.id, a]));
@@ -45,4 +49,4 @@ export function getAgent(id: AgentId): AgentDefinition {
   return a;
 }
 
-export const SPECIALISTS: AgentId[] = ['iris', 'volt', 'edith', 'friday'];
+export const SPECIALISTS: AgentId[] = ['iris', 'volt', 'edith', 'friday', 'vision', 'sentry'];

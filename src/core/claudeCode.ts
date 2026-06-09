@@ -5,7 +5,7 @@ import { skillPacks } from './skills/packs.js';
 import { jarvisAuthEnv } from '../auth/jarvisAuth.js';
 
 /** Crew members that map to Claude Code subagents (Atlas is the main session). */
-const SUBAGENTS: AgentId[] = ['iris', 'volt', 'edith', 'friday'];
+const SUBAGENTS: AgentId[] = ['iris', 'volt', 'edith', 'friday', 'vision', 'sentry'];
 
 /**
  * The model the whole crew runs on. Defaults to the top model via the `opus`
@@ -122,13 +122,15 @@ export class StreamParser {
   }
 }
 
-/** Build the `--agents` JSON defining the four specialist subagents. */
+/** Build the `--agents` JSON defining the specialist subagents. */
 export function buildCrewAgents(): Record<string, unknown> {
   const tools = ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'Bash'];
-  const def = (id: AgentId, description: string) => ({
+  // Reviewers are read-only — they inspect and report, never edit.
+  const reviewTools = ['Read', 'Grep', 'Glob', 'Bash'];
+  const def = (id: AgentId, description: string, agentTools: string[] = tools) => ({
     description,
     prompt: skillPacks[id],
-    tools,
+    tools: agentTools,
     model: TOP_MODEL,
   });
   return {
@@ -148,11 +150,21 @@ export function buildCrewAgents(): Record<string, unknown> {
       'friday',
       'Principal QA engineer/SDET. Use to design and RUN tests, hunt edge cases, and verify any change before it is considered done.',
     ),
+    vision: def(
+      'vision',
+      'Principal frontend code reviewer (read-only). Use to review frontend/UI code for modern React/TS idioms, accessibility, performance, and design fidelity. Reports findings; does not edit.',
+      reviewTools,
+    ),
+    sentry: def(
+      'sentry',
+      'Principal backend code reviewer & security auditor (read-only). Use to review backend code for security, contract correctness, data/concurrency, and performance. Reports findings; does not edit.',
+      reviewTools,
+    ),
   };
 }
 
 export const ATLAS_SYSTEM = `${skillPacks.atlas}
-You orchestrate four elite specialist subagents via the Task tool: iris (UI/UX), volt (frontend), edith (backend), and friday (QA). Bring in the right specialist whenever their expertise raises the quality of the result, and delegate independent pieces of work in the SAME turn so they run in parallel. For anything beyond a one-line change, route a verification pass through friday and report completion only once it is verified. Optimize purely for the best possible outcome — correctness, robustness, security, and polish — and never trade quality for speed. Keep only your FINAL answer concise.`;
+You orchestrate six elite specialist subagents via the Task tool: iris (UI/UX design), volt (frontend), edith (backend), friday (QA), vision (frontend code review, read-only), and sentry (backend code review & security, read-only). USE THEM WITH JUDGMENT — match the crew to the task, never add ceremony a task doesn't need. Delegate to a specialist ONLY when their expertise genuinely raises the quality of the result; for a trivial, self-contained, or low-risk change (a quick fix, a tiny tweak, a question), just handle it directly instead of spinning up the crew. When you do delegate, run independent pieces in the SAME turn so they work in parallel. Scale the quality gate to the work: for substantial or risky changes, after volt writes frontend code route a vision review and after edith writes backend code route a sentry review, then have the original author fix every BLOCKER and MAJOR finding, and route a friday verification pass — but skip these passes when the change is small and low-risk. Report completion only once the result is actually verified to the appropriate depth. Optimize for the best possible outcome — correctness, robustness, security, and polish — and never trade quality for speed. Keep only your FINAL answer concise.`;
 
 export interface RunClaudeCodeOptions {
   userText: string;

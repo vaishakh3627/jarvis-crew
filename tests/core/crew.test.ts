@@ -1,8 +1,23 @@
 import { expect, test } from 'vitest';
 import { CREW, getAgent } from '../../src/core/crew.js';
 
-test('crew has exactly the five expected agents', () => {
-  expect(CREW.map((a) => a.id).sort()).toEqual(['atlas', 'edith', 'friday', 'iris', 'volt']);
+test('crew has exactly the seven expected agents', () => {
+  expect(CREW.map((a) => a.id).sort()).toEqual([
+    'atlas',
+    'edith',
+    'friday',
+    'iris',
+    'sentry',
+    'vision',
+    'volt',
+  ]);
+});
+
+test('reviewers are read-only — they cannot write or edit', () => {
+  for (const id of ['vision', 'sentry'] as const) {
+    expect(getAgent(id).toolNames).not.toContain('write');
+    expect(getAgent(id).toolNames).not.toContain('edit');
+  }
 });
 
 test('every agent has a distinct color', () => {

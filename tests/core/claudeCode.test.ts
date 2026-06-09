@@ -84,9 +84,17 @@ test('describeTool surfaces the most useful field per tool', () => {
   expect(describeTool('Grep', { pattern: 'foo' })).toBe('foo');
 });
 
-test('crew agents JSON defines the four specialists, Atlas system names them', () => {
+test('crew agents JSON defines the six specialists, Atlas system names them', () => {
   const agents = buildCrewAgents();
-  expect(Object.keys(agents).sort()).toEqual(['edith', 'friday', 'iris', 'volt']);
+  expect(Object.keys(agents).sort()).toEqual(['edith', 'friday', 'iris', 'sentry', 'vision', 'volt']);
   expect(ATLAS_SYSTEM).toContain('iris');
   expect(ATLAS_SYSTEM).toContain('Task tool');
+});
+
+test('reviewers are read-only — no Write/Edit tools', () => {
+  const agents = buildCrewAgents() as Record<string, { tools: string[] }>;
+  for (const id of ['vision', 'sentry']) {
+    expect(agents[id].tools).not.toContain('Write');
+    expect(agents[id].tools).not.toContain('Edit');
+  }
 });

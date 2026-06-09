@@ -1,4 +1,4 @@
-export type AgentId = 'atlas' | 'iris' | 'volt' | 'edith' | 'friday';
+export type AgentId = 'atlas' | 'iris' | 'volt' | 'edith' | 'friday' | 'vision' | 'sentry';
 export type AgentStatus = 'idle' | 'thinking' | 'working' | 'done' | 'error';
 
 export interface AgentActivity {
