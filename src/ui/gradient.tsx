@@ -36,3 +36,23 @@ export function GradientText({ text, bold }: { text: string; bold?: boolean }) {
 export function GradientRule({ width }: { width: number }) {
   return <GradientText text={'━'.repeat(Math.max(1, width))} />;
 }
+
+/**
+ * The same per-character cyan→magenta gradient as <GradientText>, but as a raw
+ * ANSI string — for printing once outside the Ink tree (e.g. the splash banner,
+ * which must stay out of Ink's repainted frame so it isn't duplicated on every
+ * re-render).
+ */
+export function gradientAnsi(text: string, bold = false): string {
+  const chars = [...text];
+  const n = chars.length;
+  let out = '';
+  for (let i = 0; i < n; i++) {
+    const t = n > 1 ? i / (n - 1) : 0;
+    const r = lerp(FROM[0], TO[0], t);
+    const g = lerp(FROM[1], TO[1], t);
+    const b = lerp(FROM[2], TO[2], t);
+    out += `\x1b[${bold ? '1;' : ''}38;2;${r};${g};${b}m${chars[i]}`;
+  }
+  return out + '\x1b[0m';
+}

@@ -23,7 +23,7 @@ import {
 import { planAlias, createAlias, aliasInstructions } from './core/setup.js';
 import { Dictation, hearAvailable } from './core/dictation.js';
 import { App } from './ui/App.js';
-import { Header } from './ui/Header.js';
+import { Header, bannerAnsi } from './ui/Header.js';
 
 export interface SlashActions {
   login: () => void;
@@ -75,7 +75,6 @@ export async function routeSlashCommand(
 
 function Root({ onRequestLogin, onRequestClear }: { onRequestLogin: () => void; onRequestClear: () => void }) {
   const bus = useMemo(() => new EventBus(), []);
-  const name = useMemo(() => getDisplayName(), []);
   // One conversation per mount. /clear remounts, which mints a fresh id and
   // resets `started` — so the crew starts over with no memory.
   const sessionId = useMemo(() => randomUUID(), []);
@@ -288,7 +287,7 @@ function Root({ onRequestLogin, onRequestClear }: { onRequestLogin: () => void; 
 
   return (
     <Box flexDirection="column">
-      <Header notice={notice} status={status} name={name} />
+      <Header notice={notice} status={status} />
       <App
         bus={bus}
         onUserSubmit={onSubmit}
@@ -305,6 +304,9 @@ function Root({ onRequestLogin, onRequestClear }: { onRequestLogin: () => void; 
 let currentInstance: ReturnType<typeof render> | null = null;
 
 function mount(): void {
+  // Print the splash banner once, before Ink takes over the frame. It lives in
+  // the scrollback above Ink's repaint region, so re-renders never touch it.
+  process.stdout.write(bannerAnsi(getDisplayName()));
   currentInstance = render(<Root onRequestLogin={handleLogin} onRequestClear={handleClear} />, {
     exitOnCtrlC: false,
   });
