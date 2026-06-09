@@ -7,6 +7,7 @@ import {
   buildRunArgs,
   buildCompactArgs,
   compactSession,
+  atlasSystem,
 } from '../../src/core/claudeCode.js';
 import type { JarvisEvent } from '../../src/core/events.js';
 
@@ -155,6 +156,22 @@ test('crew agents JSON defines the six specialists, Atlas system names them', ()
   expect(Object.keys(agents).sort()).toEqual(['edith', 'friday', 'iris', 'sentry', 'vision', 'volt']);
   expect(ATLAS_SYSTEM).toContain('iris');
   expect(ATLAS_SYSTEM).toContain('Task tool');
+});
+
+test('forge (DevOps) is opt-in — absent by default, present when enabled', () => {
+  expect(Object.keys(buildCrewAgents())).not.toContain('forge');
+  expect(Object.keys(buildCrewAgents(false))).not.toContain('forge');
+
+  const withForge = buildCrewAgents(true) as Record<string, { tools: string[] }>;
+  expect(Object.keys(withForge)).toContain('forge');
+  expect(withForge.forge.tools).toContain('Bash'); // forge writes/runs infra
+
+  // Atlas only learns about forge when DevOps is on.
+  expect(atlasSystem(false)).not.toContain('forge');
+  expect(atlasSystem(true)).toContain('forge');
+  // buildRunArgs threads the flag into the agents JSON.
+  expect(buildRunArgs('x', 's', false, true).join(' ')).toContain('forge');
+  expect(buildRunArgs('x', 's', false, false).join(' ')).not.toContain('forge');
 });
 
 test('reviewers are read-only — no Write/Edit tools', () => {

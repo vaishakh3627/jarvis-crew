@@ -18,6 +18,8 @@ function configPath(): string {
 
 export interface JarvisConfig {
   name: string;
+  /** Whether the optional Forge (DevOps/release) agent is on the crew. */
+  devops?: boolean;
 }
 
 /** Whether first-run setup has already happened. */
@@ -28,7 +30,8 @@ export function configExists(): boolean {
 export function readConfig(): JarvisConfig | null {
   try {
     const obj = JSON.parse(readFileSync(configPath(), 'utf8'));
-    return obj && typeof obj.name === 'string' ? { name: obj.name } : null;
+    if (!obj || typeof obj.name !== 'string') return null;
+    return { name: obj.name, devops: obj.devops === true };
   } catch {
     return null;
   }
@@ -42,6 +45,17 @@ export function writeConfig(cfg: JarvisConfig): void {
 /** The assistant's name for the banner + command. Defaults to 'jarvis'. */
 export function getDisplayName(): string {
   return readConfig()?.name || 'jarvis';
+}
+
+/** Whether the opt-in Forge (DevOps) agent is enabled. */
+export function isDevopsEnabled(): boolean {
+  return readConfig()?.devops === true;
+}
+
+/** Toggle the Forge (DevOps) agent, preserving the rest of the config. */
+export function setDevopsEnabled(enabled: boolean): void {
+  const current = readConfig();
+  writeConfig({ name: current?.name || 'jarvis', devops: enabled });
 }
 
 // A safe command token that also fits the ASCII banner: a lowercase letter

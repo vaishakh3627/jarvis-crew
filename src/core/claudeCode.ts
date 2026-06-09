@@ -5,7 +5,7 @@ import { skillPacks } from './skills/packs.js';
 import { jarvisAuthEnv } from '../auth/jarvisAuth.js';
 
 /** Crew members that map to Claude Code subagents (Atlas is the main session). */
-const SUBAGENTS: AgentId[] = ['iris', 'volt', 'edith', 'friday', 'vision', 'sentry'];
+const SUBAGENTS: AgentId[] = ['iris', 'volt', 'edith', 'friday', 'vision', 'sentry', 'forge'];
 
 /**
  * The model the whole crew runs on. Defaults to the top model via the `opus`
@@ -128,8 +128,9 @@ export class StreamParser {
   }
 }
 
-/** Build the `--agents` JSON defining the specialist subagents. */
-export function buildCrewAgents(): Record<string, unknown> {
+/** Build the `--agents` JSON defining the specialist subagents. Forge (DevOps)
+ *  is opt-in — included only when the user has enabled it via /devops. */
+export function buildCrewAgents(devops = false): Record<string, unknown> {
   const tools = ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'Bash'];
   // Reviewers are read-only — they inspect and report, never edit.
   const reviewTools = ['Read', 'Grep', 'Glob', 'Bash'];
@@ -139,7 +140,7 @@ export function buildCrewAgents(): Record<string, unknown> {
     tools: agentTools,
     model: TOP_MODEL,
   });
-  return {
+  const agents: Record<string, unknown> = {
     iris: def(
       'iris',
       'Principal product designer (UI/UX). Use for any design, layout, visual hierarchy, design-system, motion, or accessibility work.',
@@ -167,10 +168,25 @@ export function buildCrewAgents(): Record<string, unknown> {
       reviewTools,
     ),
   };
+  if (devops) {
+    agents.forge = def(
+      'forge',
+      'Principal DevOps/release engineer. Use for CI/CD, Docker, infrastructure-as-code, cloud config, environments/secrets, observability, and safe deploys/rollbacks.',
+    );
+  }
+  return agents;
 }
 
 export const ATLAS_SYSTEM = `${skillPacks.atlas}
 You orchestrate six elite specialist subagents via the Task tool: iris (UI/UX design), volt (frontend), edith (backend), friday (QA), vision (frontend code review, read-only), and sentry (backend code review & security, read-only). USE THEM WITH JUDGMENT — match the crew to the task, never add ceremony a task doesn't need. Delegate to a specialist ONLY when their expertise genuinely raises the quality of the result; for a trivial, self-contained, or low-risk change (a quick fix, a tiny tweak, a question), just handle it directly instead of spinning up the crew. When you do delegate, run independent pieces in the SAME turn so they work in parallel. Scale the quality gate to the work: for substantial or risky changes, after volt writes frontend code route a vision review and after edith writes backend code route a sentry review, then have the original author fix every BLOCKER and MAJOR finding, and route a friday verification pass — but skip these passes when the change is small and low-risk. Report completion only once the result is actually verified to the appropriate depth. Optimize for the best possible outcome — correctness, robustness, security, and polish — and never trade quality for speed. Keep only your FINAL answer concise.`;
+
+const FORGE_CLAUSE =
+  ' A seventh specialist, forge (DevOps/release — CI/CD, Docker, infrastructure-as-code, cloud config, environments/secrets, observability, safe deploys/rollbacks), is also enabled: delegate infrastructure, build, and deployment work to forge when it raises quality.';
+
+/** The orchestrator system prompt, with the Forge clause when DevOps is on. */
+export function atlasSystem(devops: boolean): string {
+  return devops ? ATLAS_SYSTEM + FORGE_CLAUSE : ATLAS_SYSTEM;
+}
 
 export interface RunClaudeCodeOptions {
   userText: string;
@@ -181,6 +197,8 @@ export interface RunClaudeCodeOptions {
   sessionId: string;
   /** False on the first turn (creates the session), true after (resumes it). */
   resume: boolean;
+  /** Whether the opt-in Forge (DevOps) agent is on the crew. */
+  devops: boolean;
   /** Override the binary (tests). Defaults to "claude". */
   command?: string;
 }
@@ -195,7 +213,7 @@ export interface RunResult {
  * session (`--session-id`); later turns resume it (`--resume`) so the crew
  * remembers the conversation. Pure, so it's unit-testable.
  */
-export function buildRunArgs(userText: string, sessionId: string, resume: boolean): string[] {
+export function buildRunArgs(userText: string, sessionId: string, resume: boolean, devops = false): string[] {
   return [
     '-p',
     userText,
@@ -215,11 +233,11 @@ export function buildRunArgs(userText: string, sessionId: string, resume: boolea
     'WebSearch',
     'WebFetch',
     '--append-system-prompt',
-    ATLAS_SYSTEM,
+    atlasSystem(devops),
     '--model',
     TOP_MODEL,
     '--agents',
-    JSON.stringify(buildCrewAgents()),
+    JSON.stringify(buildCrewAgents(devops)),
     // Self-contained: run ONLY the Jarvis crew and their charters. Ignore the
     // host project's settings, CLAUDE.md, skills, plugins, MCP servers, and any
     // local subagents — so behavior is identical in every project.
@@ -237,7 +255,7 @@ export function buildRunArgs(userText: string, sessionId: string, resume: boolea
  */
 export function runClaudeCode(opts: RunClaudeCodeOptions): Promise<RunResult> {
   const { userText, bus, cwd, signal } = opts;
-  const args = buildRunArgs(userText, opts.sessionId, opts.resume);
+  const args = buildRunArgs(userText, opts.sessionId, opts.resume, opts.devops);
 
   // Show Atlas immediately; the parser emits agentStarted on the first message.
   bus.emit({ type: 'activity', activity: { id: 'atlas', status: 'thinking', progress: 0.1 } });

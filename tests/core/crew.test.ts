@@ -1,10 +1,11 @@
 import { expect, test } from 'vitest';
 import { CREW, getAgent } from '../../src/core/crew.js';
 
-test('crew has exactly the seven expected agents', () => {
+test('crew has exactly the eight expected agents', () => {
   expect(CREW.map((a) => a.id).sort()).toEqual([
     'atlas',
     'edith',
+    'forge',
     'friday',
     'iris',
     'sentry',

@@ -2,7 +2,15 @@ import { afterEach, beforeEach, expect, test } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { configExists, getDisplayName, readConfig, writeConfig, validateName } from '../../src/core/config.js';
+import {
+  configExists,
+  getDisplayName,
+  readConfig,
+  writeConfig,
+  validateName,
+  isDevopsEnabled,
+  setDevopsEnabled,
+} from '../../src/core/config.js';
 
 let dir: string;
 
@@ -22,7 +30,20 @@ test('config defaults to jarvis until written, then round-trips', () => {
 
   writeConfig({ name: 'friday' });
   expect(configExists()).toBe(true);
-  expect(readConfig()).toEqual({ name: 'friday' });
+  expect(readConfig()).toEqual({ name: 'friday', devops: false });
+  expect(getDisplayName()).toBe('friday');
+});
+
+test('devops is off by default and toggles while preserving the name', () => {
+  expect(isDevopsEnabled()).toBe(false);
+
+  writeConfig({ name: 'friday' });
+  setDevopsEnabled(true);
+  expect(isDevopsEnabled()).toBe(true);
+  expect(getDisplayName()).toBe('friday'); // name preserved across the toggle
+
+  setDevopsEnabled(false);
+  expect(isDevopsEnabled()).toBe(false);
   expect(getDisplayName()).toBe('friday');
 });
 

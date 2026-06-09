@@ -8,7 +8,14 @@ import { EventBus } from './core/events.js';
 import { runClaudeCode, compactSession } from './core/claudeCode.js';
 import { createInterface } from 'node:readline';
 import { isJarvisLoggedIn, runJarvisLogin, clearJarvisToken } from './auth/jarvisAuth.js';
-import { configExists, getDisplayName, validateName, writeConfig } from './core/config.js';
+import {
+  configExists,
+  getDisplayName,
+  validateName,
+  writeConfig,
+  isDevopsEnabled,
+  setDevopsEnabled,
+} from './core/config.js';
 import { planAlias, createAlias, aliasInstructions } from './core/setup.js';
 import { App } from './ui/App.js';
 import { Header } from './ui/Header.js';
@@ -19,6 +26,7 @@ export interface SlashActions {
   help: () => void;
   clear: () => void;
   compact: () => void;
+  devops: () => void;
 }
 
 export async function routeSlashCommand(
@@ -43,6 +51,9 @@ export async function routeSlashCommand(
     case 'compact':
       actions.compact();
       return 'handled';
+    case 'devops':
+      actions.devops();
+      return 'handled';
     default:
       return 'unknown';
   }
@@ -55,6 +66,7 @@ function Root({ onRequestLogin, onRequestClear }: { onRequestLogin: () => void; 
   // resets `started` — so the crew starts over with no memory.
   const sessionId = useMemo(() => randomUUID(), []);
   const startedRef = useRef(false);
+  const [devops, setDevops] = useState(() => isDevopsEnabled());
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('Checking your Jarvis sign-in…');
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
@@ -111,10 +123,22 @@ function Root({ onRequestLogin, onRequestClear }: { onRequestLogin: () => void; 
         setNotice('Signed out. Type /login to sign back in.');
       },
       help: () =>
-        setNotice('Commands: /login, /logout, /compact, /clear, /help. Otherwise, just describe what to build.'),
+        setNotice(
+          'Commands: /login, /logout, /compact, /devops, /clear, /help. Otherwise, just describe what to build.',
+        ),
       clear: () => onRequestClear(),
       compact: () => {
         void handleCompact();
+      },
+      devops: () => {
+        const next = !devops;
+        setDevopsEnabled(next);
+        setDevops(next);
+        setNotice(
+          next
+            ? '🛠 Forge (DevOps) joined the crew — Atlas can now delegate CI/CD, Docker, and deploys.'
+            : 'Forge (DevOps) stood down.',
+        );
       },
     });
     if (handled !== 'passthrough') {
@@ -136,6 +160,7 @@ function Root({ onRequestLogin, onRequestClear }: { onRequestLogin: () => void; 
         signal: controller.signal,
         sessionId,
         resume: startedRef.current,
+        devops,
       });
       if (!result.ok) {
         setNotice(result.error ? `Error: ${result.error}` : 'The run failed.');

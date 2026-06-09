@@ -39,6 +39,7 @@ export const CREW: AgentDefinition[] = [
   persona('friday', 'Friday', '🔍', '#34d399', 'QA engineer', 'claude-sonnet-4-6', SPECIALIST_TOOLS),
   persona('vision', 'Vision', '👁', '#818cf8', 'frontend reviewer', 'claude-sonnet-4-6', REVIEW_TOOLS),
   persona('sentry', 'Sentry', '🛡', '#f87171', 'backend reviewer', 'claude-sonnet-4-6', REVIEW_TOOLS),
+  persona('forge', 'Forge', '🛠', '#fb923c', 'DevOps engineer', 'claude-sonnet-4-6', SPECIALIST_TOOLS),
 ];
 
 const byId = new Map(CREW.map((a) => [a.id, a]));
@@ -49,4 +50,4 @@ export function getAgent(id: AgentId): AgentDefinition {
   return a;
 }
 
-export const SPECIALISTS: AgentId[] = ['iris', 'volt', 'edith', 'friday', 'vision', 'sentry'];
+export const SPECIALISTS: AgentId[] = ['iris', 'volt', 'edith', 'friday', 'vision', 'sentry', 'forge'];
