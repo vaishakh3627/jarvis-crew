@@ -1,10 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Box, Text, useInput } from 'ink';
+import { Box, Text, useInput, useStdout } from 'ink';
 import { pasteClipboardImage } from './clipboard.js';
 
+// Bracketed-paste markers. With paste mode on (ESC[?2004h) the terminal wraps
+// every paste in ESC[200~ … ESC[201~; Ink strips one leading ESC before our
+// handler runs, so the start marker arrives as "[200~". Strip both forms.
+const PASTE_MARKERS = /\u001b?\[20[01]~/g;
+
 function sanitizePaste(s: string): string {
-  // Collapse newlines/tabs to spaces; drop other control characters.
-  const flat = s.replace(/[\r\n\t]+/g, ' ');
+  // Drop paste markers, collapse newlines/tabs to spaces, drop other controls.
+  const flat = s.replace(PASTE_MARKERS, '').replace(/[\r\n\t]+/g, ' ');
   return [...flat].filter((c) => c === ' ' || (c.codePointAt(0) ?? 0) >= 32).join('');
 }
 
@@ -44,6 +49,7 @@ export function Input({
   const [hint, setHint] = useState('');
   const [blink, setBlink] = useState(true);
   const imagesRef = useRef<string[]>([]); // attached image paths, in order
+  const { stdout } = useStdout();
 
   // Dictation (or any caller) can drop transcribed text into the box for review.
   useEffect(() => {
@@ -53,6 +59,33 @@ export function Input({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [injectNonce]);
+
+  // Turn on bracketed paste so the terminal wraps pastes in markers. That's what
+  // makes Cmd+V images work like Claude Code: an image paste arrives as an
+  // *empty* bracketed paste, and we pull the picture off the clipboard. Turned
+  // back off when the box unmounts (e.g. /clear remount, exit).
+  useEffect(() => {
+    stdout.write('\u001b[?2004h');
+    return () => {
+      stdout.write('\u001b[?2004l');
+    };
+  }, [stdout]);
+
+  // Pull an image off the clipboard and drop an [Image #N] chip into the box.
+  // `quietIfNone` keeps an empty paste silent when there's simply no image.
+  function attachClipboardImage(quietIfNone = false) {
+    if (!quietIfNone) setHint('pasting image…');
+    void pasteClipboardImage().then((r) => {
+      if ('path' in r) {
+        const n = imagesRef.current.length + 1;
+        imagesRef.current = [...imagesRef.current, r.path];
+        setValue((v) => `${v && !v.endsWith(' ') ? `${v} ` : v}[Image #${n}] `);
+        setHint(`Image #${n} attached ✓`);
+      } else if (!quietIfNone) {
+        setHint(r.error);
+      }
+    });
+  }
 
   // Blink the cursor only while idle (not locked, not running), so it's obvious where to type.
   useEffect(() => {
@@ -89,19 +122,24 @@ export function Input({
         return;
       }
 
-      // Ctrl+V — paste a clipboard image as an [Image #N] chip
+      // A bracketed paste from the terminal (Cmd+V). The terminal sends an image
+      // paste as an *empty* paste — that's our cue to grab the picture off the
+      // clipboard; otherwise it's text, so strip the markers and insert it.
+      if (input.includes('[200~')) {
+        const text = sanitizePaste(input);
+        if (text.length === 0) {
+          attachClipboardImage(true);
+        } else {
+          setValue((v) => v + text);
+          setHistIndex(-1);
+        }
+        return;
+      }
+
+      // Ctrl+V — explicit clipboard-image paste (fallback for terminals that
+      // don't forward Cmd+V as a bracketed paste).
       if (key.ctrl && input === 'v') {
-        setHint('pasting image…');
-        void pasteClipboardImage().then((r) => {
-          if ('path' in r) {
-            const n = imagesRef.current.length + 1;
-            imagesRef.current = [...imagesRef.current, r.path];
-            setValue((v) => `${v && !v.endsWith(' ') ? `${v} ` : v}[Image #${n}] `);
-            setHint(`Image #${n} attached ✓`);
-          } else {
-            setHint(r.error);
-          }
-        });
+        attachClipboardImage();
         return;
       }
 
@@ -165,7 +203,7 @@ export function Input({
             <Text dimColor>
               {busy
                 ? ' Atlas is working — type /btw <note> to interject…'
-                : ' Describe what to build…  (↑ history · ⌃V paste image)'}
+                : ' Describe what to build…  (↑ history · ⌘V/⌃V paste image)'}
             </Text>
           </>
         ) : (

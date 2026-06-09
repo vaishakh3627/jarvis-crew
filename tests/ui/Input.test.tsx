@@ -55,6 +55,21 @@ test('stays typeable while busy so the user can interject with /btw', async () =
   expect(onSubmit).toHaveBeenCalledWith('/btw fix it', '/btw fix it');
 });
 
+test('a bracketed paste inserts clean text without the terminal markers', async () => {
+  const onSubmit = vi.fn();
+  const { stdin, lastFrame } = render(<Input onSubmit={onSubmit} />);
+  await tick();
+  // Cmd+V text paste: the terminal wraps it in ESC[200~ … ESC[201~.
+  stdin.write('\u001b[200~hello world\u001b[201~');
+  await tick();
+  const frame = lastFrame() ?? '';
+  expect(frame).toContain('hello world');
+  expect(frame).not.toContain('200~'); // markers must not leak into the box
+  stdin.write('\r');
+  await tick();
+  expect(onSubmit).toHaveBeenCalledWith('hello world', 'hello world');
+});
+
 test('injects dictated text into the box when the nonce changes', async () => {
   const onSubmit = vi.fn();
   const { rerender, stdin, lastFrame } = render(
