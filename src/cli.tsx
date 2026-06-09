@@ -3,8 +3,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { render, Box, useApp, useInput } from 'ink';
 import { fileURLToPath } from 'node:url';
 import { realpathSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import { EventBus } from './core/events.js';
-import { runClaudeCode } from './core/claudeCode.js';
+import { runClaudeCode, compactSession } from './core/claudeCode.js';
 import { createInterface } from 'node:readline';
 import { isJarvisLoggedIn, runJarvisLogin, clearJarvisToken } from './auth/jarvisAuth.js';
 import { configExists, getDisplayName, validateName, writeConfig } from './core/config.js';
@@ -17,6 +18,7 @@ export interface SlashActions {
   logout: () => void;
   help: () => void;
   clear: () => void;
+  compact: () => void;
 }
 
 export async function routeSlashCommand(
@@ -38,6 +40,9 @@ export async function routeSlashCommand(
     case 'clear':
       actions.clear();
       return 'handled';
+    case 'compact':
+      actions.compact();
+      return 'handled';
     default:
       return 'unknown';
   }
@@ -46,11 +51,34 @@ export async function routeSlashCommand(
 function Root({ onRequestLogin, onRequestClear }: { onRequestLogin: () => void; onRequestClear: () => void }) {
   const bus = useMemo(() => new EventBus(), []);
   const name = useMemo(() => getDisplayName(), []);
+  // One conversation per mount. /clear remounts, which mints a fresh id and
+  // resets `started` — so the crew starts over with no memory.
+  const sessionId = useMemo(() => randomUUID(), []);
+  const startedRef = useRef(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('Checking your Jarvis sign-in…');
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
   const { exit } = useApp();
+
+  async function handleCompact() {
+    if (loggedIn === false) {
+      setNotice('Not signed in. Type /login first.');
+      return;
+    }
+    if (!startedRef.current) {
+      setNotice('Nothing to compact yet — start a conversation first.');
+      return;
+    }
+    setBusy(true);
+    setNotice('Compacting the conversation…');
+    try {
+      const { ok, message } = await compactSession(sessionId);
+      setNotice(ok ? `✔ ${message}` : `Compaction: ${message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   useEffect(() => {
     const ok = isJarvisLoggedIn();
@@ -82,8 +110,12 @@ function Root({ onRequestLogin, onRequestClear }: { onRequestLogin: () => void; 
         setLoggedIn(false);
         setNotice('Signed out. Type /login to sign back in.');
       },
-      help: () => setNotice('Commands: /login, /logout, /help, /clear. Otherwise, just describe what to build.'),
+      help: () =>
+        setNotice('Commands: /login, /logout, /compact, /clear, /help. Otherwise, just describe what to build.'),
       clear: () => onRequestClear(),
+      compact: () => {
+        void handleCompact();
+      },
     });
     if (handled !== 'passthrough') {
       if (handled === 'unknown') setNotice(`Unknown command: ${text}`);
@@ -102,11 +134,15 @@ function Root({ onRequestLogin, onRequestClear }: { onRequestLogin: () => void; 
         bus,
         cwd: process.cwd(),
         signal: controller.signal,
+        sessionId,
+        resume: startedRef.current,
       });
       if (!result.ok) {
         setNotice(result.error ? `Error: ${result.error}` : 'The run failed.');
       }
     } finally {
+      // The session now exists, so every later turn resumes it.
+      startedRef.current = true;
       setBusy(false);
       controllerRef.current = null;
     }

@@ -177,6 +177,10 @@ export interface RunClaudeCodeOptions {
   bus: EventBus;
   cwd: string;
   signal: AbortSignal;
+  /** Stable conversation id so the crew keeps context across turns. */
+  sessionId: string;
+  /** False on the first turn (creates the session), true after (resumes it). */
+  resume: boolean;
   /** Override the binary (tests). Defaults to "claude". */
   command?: string;
 }
@@ -187,12 +191,12 @@ export interface RunResult {
 }
 
 /**
- * Runs Claude Code headless on the user's Max login and streams its activity
- * onto the Jarvis event bus. No API key required.
+ * The full `claude` argument list for one turn. The first turn creates the
+ * session (`--session-id`); later turns resume it (`--resume`) so the crew
+ * remembers the conversation. Pure, so it's unit-testable.
  */
-export function runClaudeCode(opts: RunClaudeCodeOptions): Promise<RunResult> {
-  const { userText, bus, cwd, signal } = opts;
-  const args = [
+export function buildRunArgs(userText: string, sessionId: string, resume: boolean): string[] {
+  return [
     '-p',
     userText,
     '--output-format',
@@ -223,7 +227,17 @@ export function runClaudeCode(opts: RunClaudeCodeOptions): Promise<RunResult> {
     '',
     '--strict-mcp-config',
     '--disable-slash-commands',
+    ...(resume ? ['--resume', sessionId] : ['--session-id', sessionId]),
   ];
+}
+
+/**
+ * Runs Claude Code headless on the user's Max login and streams its activity
+ * onto the Jarvis event bus. No API key required.
+ */
+export function runClaudeCode(opts: RunClaudeCodeOptions): Promise<RunResult> {
+  const { userText, bus, cwd, signal } = opts;
+  const args = buildRunArgs(userText, opts.sessionId, opts.resume);
 
   // Show Atlas immediately; the parser emits agentStarted on the first message.
   bus.emit({ type: 'activity', activity: { id: 'atlas', status: 'thinking', progress: 0.1 } });
@@ -272,5 +286,61 @@ export function runClaudeCode(opts: RunClaudeCodeOptions): Promise<RunResult> {
       if (!ok) bus.emit({ type: 'agentFinished', agent: 'atlas', ok: false });
       resolve({ ok, error: ok ? undefined : stderr.trim() || `claude exited with code ${code}` });
     });
+  });
+}
+
+export interface CompactResult {
+  ok: boolean;
+  message: string;
+}
+
+/**
+ * Args to compact a session via Claude's native `/compact`. Slash commands are
+ * deliberately NOT disabled here (unlike a normal turn) so the command runs.
+ */
+export function buildCompactArgs(sessionId: string): string[] {
+  return [
+    '-p',
+    '/compact',
+    '--resume',
+    sessionId,
+    '--output-format',
+    'json',
+    '--setting-sources',
+    '',
+    '--strict-mcp-config',
+  ];
+}
+
+/**
+ * Compacts a conversation's context using Claude's built-in `/compact`, in
+ * place on the same session — subsequent resumed turns continue from the
+ * shorter context. The runner is injectable for tests.
+ */
+export function compactSession(
+  sessionId: string,
+  deps: { run?: (args: string[]) => Promise<{ code: number; stdout: string }> } = {},
+): Promise<CompactResult> {
+  const args = buildCompactArgs(sessionId);
+  const run =
+    deps.run ??
+    ((a: string[]) =>
+      new Promise<{ code: number; stdout: string }>((resolve) => {
+        const child = spawn('claude', a, { stdio: ['ignore', 'pipe', 'pipe'], env: jarvisAuthEnv() });
+        let out = '';
+        child.stdout?.on('data', (d) => (out += d.toString()));
+        child.on('error', () => resolve({ code: 1, stdout: '' }));
+        child.on('close', (code) => resolve({ code: code ?? 1, stdout: out }));
+      }));
+
+  return run(args).then(({ code, stdout }) => {
+    try {
+      const obj = JSON.parse(stdout);
+      const ok = code === 0 && obj?.is_error !== true;
+      const message = typeof obj?.result === 'string' && obj.result ? obj.result : ok ? 'Compacted.' : 'Compaction failed.';
+      return { ok, message };
+    } catch {
+      return { ok: false, message: 'Compaction failed.' };
+    }
   });
 }

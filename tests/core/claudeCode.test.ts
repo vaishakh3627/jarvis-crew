@@ -1,5 +1,13 @@
 import { expect, test } from 'vitest';
-import { StreamParser, describeTool, buildCrewAgents, ATLAS_SYSTEM } from '../../src/core/claudeCode.js';
+import {
+  StreamParser,
+  describeTool,
+  buildCrewAgents,
+  ATLAS_SYSTEM,
+  buildRunArgs,
+  buildCompactArgs,
+  compactSession,
+} from '../../src/core/claudeCode.js';
 import type { JarvisEvent } from '../../src/core/events.js';
 
 function run(seq: any[]): JarvisEvent[] {
@@ -92,6 +100,48 @@ test('StreamParser accumulates output tokens from usage into stats events', () =
   });
   expect(first.find((e) => e.type === 'stats')).toMatchObject({ outputTokens: 100 });
   expect(second.find((e) => e.type === 'stats')).toMatchObject({ outputTokens: 150 });
+});
+
+test('buildRunArgs creates the session on the first turn and resumes it after', () => {
+  const first = buildRunArgs('hello', 'sess-1', false);
+  expect(first).toContain('--session-id');
+  expect(first[first.indexOf('--session-id') + 1]).toBe('sess-1');
+  expect(first).not.toContain('--resume');
+
+  const next = buildRunArgs('again', 'sess-1', true);
+  expect(next).toContain('--resume');
+  expect(next[next.indexOf('--resume') + 1]).toBe('sess-1');
+  expect(next).not.toContain('--session-id');
+
+  // Both turns still run the self-contained crew with slash commands disabled.
+  expect(first).toContain('--disable-slash-commands');
+  expect(next).toContain('--disable-slash-commands');
+});
+
+test('buildCompactArgs resumes the session and keeps slash commands enabled', () => {
+  const args = buildCompactArgs('sess-1');
+  expect(args.slice(0, 2)).toEqual(['-p', '/compact']);
+  expect(args).toContain('--resume');
+  expect(args[args.indexOf('--resume') + 1]).toBe('sess-1');
+  // /compact must be allowed to run, unlike a normal turn.
+  expect(args).not.toContain('--disable-slash-commands');
+});
+
+test('compactSession parses the result text and success flag', async () => {
+  const okRun = async () => ({ code: 0, stdout: JSON.stringify({ is_error: false, result: 'Compacted.' }) });
+  expect(await compactSession('s', { run: okRun })).toEqual({ ok: true, message: 'Compacted.' });
+
+  const noneRun = async () => ({
+    code: 0,
+    stdout: JSON.stringify({ is_error: false, result: 'Not enough messages to compact.' }),
+  });
+  expect(await compactSession('s', { run: noneRun })).toEqual({
+    ok: true,
+    message: 'Not enough messages to compact.',
+  });
+
+  const badRun = async () => ({ code: 1, stdout: 'not json' });
+  expect(await compactSession('s', { run: badRun })).toEqual({ ok: false, message: 'Compaction failed.' });
 });
 
 test('describeTool surfaces the most useful field per tool', () => {
